@@ -156,7 +156,6 @@ void init(int argc, char* argv[]) {
 
     // parse arguments and set globals *before* setting up UI.
     // arguments can be read and set after callbacks are setup
-    // FIXME as Release is built as WindowedApp, stdout/stderr won't show
     LOG("argc: %d", argc);
     if (argc > 1) {
         if (!parseArgs(argc, argv)) {

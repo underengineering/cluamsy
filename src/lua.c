@@ -11,7 +11,7 @@ void lua_state_init(void) {
     luaL_openlibs(L);
 
     int status = luaL_loadfile(L, "main.lua");
-    LOG("luaL_loadfile: %d\n", status);
+    LOG("luaL_loadfile: %d", status);
 }
 
 void lua_state_close(void) {

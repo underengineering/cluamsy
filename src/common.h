@@ -74,7 +74,7 @@ static void VsLog(const char* pFmt, ...)
     vsprintf_s(buf, 1024, pFmt, args);
     va_end(args);
 
-    OutputDebugString(buf);
+    fprintf(stderr, "%s", buf);
 }
 
 #define LOG(fmt, ...) (VsLog(__FUNCTION__ ": " fmt "\n", ##__VA_ARGS__))
