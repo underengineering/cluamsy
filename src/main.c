@@ -125,6 +125,8 @@ void init(int argc, char* argv[]) {
     Ihandle *noneIcon, *doingIcon, *errorIcon;
     char* arg_value = NULL;
 
+    lua_state_init();
+
     // fill in config
     loadConfig();
 
@@ -271,7 +273,6 @@ void startup() {
 }
 
 void cleanup() {
-
     IupDestroy(timer);
     if (timeout) {
         IupDestroy(timeout);
@@ -279,6 +280,8 @@ void cleanup() {
 
     IupClose();
     endTimePeriod(); // try close if not closing
+
+    lua_state_close();
 }
 
 // ui logics

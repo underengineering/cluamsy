@@ -3,6 +3,7 @@
 #include <assert.h>
 #include "iup.h"
 #include "windivert.h"
+#include "lauxlib.h"
 
 #define CLUMSY_VERSION "0.3"
 #define MSG_BUFSIZE 512
@@ -147,6 +148,11 @@ extern Module tamperModule;
 extern Module resetModule;
 extern Module bandwidthModule;
 extern Module* modules[MODULE_CNT]; // all modules in a list
+
+// lua
+extern lua_State* L;
+extern void lua_state_init(void);
+extern void lua_state_close(void);
 
 // status for sending packets, 
 #define SEND_STATUS_NONE 0

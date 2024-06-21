@@ -34,6 +34,7 @@ sources = files(
   'src/tamper.c',
   'src/throttle.c',
   'src/utils.c',
+  'src/lua.c',
 )
 exe = executable('cluamsy', sources, dependencies : [iup_dep, windivert_dep, luajit_dep, ws32_dep, winmm_dep])
 
