@@ -1,10 +1,11 @@
-#include <stdlib.h>
-#include <Windows.h>
-#include "iup.h"
 #include "common.h"
+#include "iup.h"
+#include <Windows.h>
+#include <stdlib.h>
 
 short calcChance(short chance) {
-    // notice that here we made a copy of chance, so even though it's volatile it is still ok
+    // notice that here we made a copy of chance, so even though it's volatile
+    // it is still ok
     return (chance == 10000) || ((rand() % 10000) < chance);
 }
 
@@ -25,18 +26,18 @@ void endTimePeriod() {
     }
 }
 
-
 // shared callbacks
 int uiSyncChance(Ihandle *ih) {
     char valueBuf[8];
     float value = IupGetFloat(ih, "VALUE"), newValue = value;
-    short *chancePtr = (short*)IupGetAttribute(ih, SYNCED_VALUE);
+    short *chancePtr = (short *)IupGetAttribute(ih, SYNCED_VALUE);
     if (newValue > 100.0f) {
-       newValue = 100.0f;
+        newValue = 100.0f;
     } else if (newValue < 0) {
-       newValue = 0.0f;
+        newValue = 0.0f;
     }
-    if (newValue != value) { // equality compare is fine since newValue is a copy of value
+    if (newValue !=
+        value) { // equality compare is fine since newValue is a copy of value
         sprintf(valueBuf, "%.1f", newValue);
         IupStoreAttribute(ih, "VALUE", valueBuf);
         // put caret at end to enable editing while normalizing
@@ -49,7 +50,7 @@ int uiSyncChance(Ihandle *ih) {
 
 // shared callbacks
 int uiSyncInt32(Ihandle *ih) {
-    LONG *integerPointer = (LONG*)IupGetAttribute(ih, SYNCED_VALUE);
+    LONG *integerPointer = (LONG *)IupGetAttribute(ih, SYNCED_VALUE);
     const int maxValue = IupGetInt(ih, INTEGER_MAX);
     const int minValue = IupGetInt(ih, INTEGER_MIN);
     // normalize input into [min, max]
@@ -73,13 +74,13 @@ int uiSyncInt32(Ihandle *ih) {
 }
 
 int uiSyncToggle(Ihandle *ih, int state) {
-    short *togglePtr = (short*)IupGetAttribute(ih, SYNCED_VALUE);
+    short *togglePtr = (short *)IupGetAttribute(ih, SYNCED_VALUE);
     InterlockedExchange16(togglePtr, I2S(state));
     return IUP_DEFAULT;
 }
 
 int uiSyncInteger(Ihandle *ih) {
-    short *integerPointer = (short*)IupGetAttribute(ih, SYNCED_VALUE);
+    short *integerPointer = (short *)IupGetAttribute(ih, SYNCED_VALUE);
     const int maxValue = IupGetInt(ih, INTEGER_MAX);
     const int minValue = IupGetInt(ih, INTEGER_MIN);
     // normalize input into [min, max]
@@ -104,7 +105,7 @@ int uiSyncInteger(Ihandle *ih) {
 
 // naive fixed number of (short) * 0.01
 int uiSyncFixed(Ihandle *ih) {
-    short *fixedPointer = (short*)IupGetAttribute(ih, SYNCED_VALUE);
+    short *fixedPointer = (short *)IupGetAttribute(ih, SYNCED_VALUE);
     const float maxFixedValue = IupGetFloat(ih, FIXED_MAX);
     const float minFixedValue = IupGetFloat(ih, FIXED_MIN);
     float value = IupGetFloat(ih, "VALUE");
@@ -129,23 +130,17 @@ int uiSyncFixed(Ihandle *ih) {
     return IUP_DEFAULT;
 }
 
-
 // indicator icon, generated from scripts/im2carr.py
-const unsigned char icon8x8[8*8] = {
-    0, 0, 1, 1, 1, 1, 0, 0,
-    0, 1, 1, 1, 1, 1, 1, 0,
-    1, 1, 1, 1, 1, 1, 1, 1,
-    1, 1, 1, 1, 1, 1, 1, 1,
-    1, 1, 1, 1, 1, 1, 1, 1,
-    1, 1, 1, 1, 1, 1, 1, 1,
-    0, 1, 1, 1, 1, 1, 1, 0,
-    0, 0, 1, 1, 1, 1, 0, 0,
+const unsigned char icon8x8[8 * 8] = {
+    0, 0, 1, 1, 1, 1, 0, 0, 0, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1,
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+    1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 0, 0, 0, 1, 1, 1, 1, 0, 0,
 };
 
 typedef int (*IstateCallback)(Ihandle *ih, int state);
 // parameterized setter
 void setFromParameter(Ihandle *ih, const char *field, const char *key) {
-    char* val = IupGetGlobal(key);
+    char *val = IupGetGlobal(key);
     Icallback cb;
     IstateCallback scb;
     // FIXME there should be a way to trigger handler
@@ -173,14 +168,16 @@ void setFromParameter(Ihandle *ih, const char *field, const char *key) {
 
 // parse arguments and set globals
 // only checks for argument style, no extra validation is done
-BOOL parseArgs(int argc, char* argv[]) {
+BOOL parseArgs(int argc, char *argv[]) {
     int ix = 0;
     char *key, *value;
-    // begin parsing "--key value" args. 
+    // begin parsing "--key value" args.
     // notice that quoted arg with spaces in between is already handled by shell
-    if (argc == 1) return 0;
+    if (argc == 1)
+        return 0;
     for (;;) {
-        if (++ix >= argc) break;
+        if (++ix >= argc)
+            break;
         key = argv[ix];
         if (key[0] != '-' || key[1] != '-' || key[2] == '\0') {
             return 0;
