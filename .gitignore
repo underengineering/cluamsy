@@ -1,8 +1,7 @@
+.cache/
 bin/
 build/
 tmp/
-zig-cache/
-zig-out/
 etc/clumsy.aps
 *.swp
 obj_vs
