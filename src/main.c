@@ -132,13 +132,13 @@ void init(int argc, char *argv[]) {
     Ihandle *noneIcon, *doingIcon, *errorIcon;
     char *arg_value = NULL;
 
-    lua_state_init();
-
     // fill in config
     loadConfig();
 
     // iup inits
     IupOpen(&argc, &argv);
+
+    lua_state_init();
 
     // this is so easy to get wrong so it's pretty worth noting in the program
     statusLabel =

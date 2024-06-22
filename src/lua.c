@@ -1,6 +1,7 @@
-#include <stdbool.h>
 #define WIN32_LEAN_AND_MEAN
 #include <Windows.h>
+#include <iup.h>
+#include <stdbool.h>
 
 #include "lauxlib.h"
 #include "lua.h"
@@ -13,7 +14,7 @@ lua_State *L = NULL;
 static char HOOK_KEY = 0;
 static HANDLE g_hookHandle = NULL;
 
-void lua_pushkbdll(lua_State *L, KBDLLHOOKSTRUCT *value) {
+static void lua_pushkbdll(lua_State *L, KBDLLHOOKSTRUCT *value) {
     lua_createtable(L, 0, 3);
 
     lua_pushnumber(L, value->vkCode);
@@ -26,8 +27,8 @@ void lua_pushkbdll(lua_State *L, KBDLLHOOKSTRUCT *value) {
     lua_setfield(L, -2, "flags");
 }
 
-LRESULT CALLBACK LowLevelKeyboardProc(int code, WPARAM w_param,
-                                      LPARAM l_param) {
+static LRESULT CALLBACK LowLevelKeyboardProc(int code, WPARAM w_param,
+                                             LPARAM l_param) {
 
     lua_pushlightuserdata(L, &HOOK_KEY);
     lua_gettable(L, LUA_REGISTRYINDEX);
@@ -67,13 +68,88 @@ static int lua_lib_register_keyboard_hook(lua_State *L) {
     return 0;
 }
 
+static int timer_callback(Ihandle *handle) {
+    // Get callback from registry
+    lua_pushlightuserdata(L, handle);
+    lua_gettable(L, LUA_REGISTRYINDEX);
+
+    if (lua_pcall(L, 0, 0, 0) != LUA_OK) {
+        LOG("timer_callback: %s", lua_tostring(L, -1));
+        lua_pop(L, 1);
+    }
+
+    return 0;
+}
+
+static int lua_lib_timer_run(lua_State *L) {
+    luaL_checktype(L, 1, LUA_TUSERDATA);
+
+    bool run = lua_toboolean(L, 2);
+
+    Ihandle *handle = *(Ihandle **)lua_touserdata(L, 1);
+    IupSetAttribute(handle, "RUN", run ? "YES" : "NO");
+
+    return 1;
+}
+
+static int lua_lib_timer_set_time(lua_State *L) {
+    luaL_checktype(L, 1, LUA_TUSERDATA);
+
+    const char *time = luaL_checkstring(L, 2);
+    Ihandle *handle = *(Ihandle **)lua_touserdata(L, 1);
+    IupSetAttribute(handle, "TIME", time);
+
+    return 1;
+}
+
+static int lua_lib_timer_set_callback(lua_State *L) {
+    luaL_checktype(L, 1, LUA_TUSERDATA);
+    luaL_checktype(L, 2, LUA_TFUNCTION);
+
+    Ihandle *handle = *(Ihandle **)lua_touserdata(L, 1);
+    IupSetCallback(handle, "ACTION_CB", timer_callback);
+
+    // Place callback in the registry
+    lua_pushlightuserdata(L, handle);
+    lua_pushvalue(L, 2);
+    lua_settable(L, LUA_REGISTRYINDEX);
+
+    return 1;
+}
+
+static int lua_lib_timer_destroy(lua_State *L) {
+    luaL_checktype(L, -1, LUA_TUSERDATA);
+
+    Ihandle *handle = *(Ihandle **)lua_touserdata(L, 1);
+    IupDestroy(handle);
+
+    // Remove callback from registry
+    lua_pushlightuserdata(L, handle);
+    lua_pushnil(L);
+    lua_settable(L, LUA_REGISTRYINDEX);
+
+    return 1;
+}
+
+static int lua_lib_create_timer(lua_State *L) {
+    luaL_checknumber(L, -1);
+
+    Ihandle *timer = IupTimer();
+
+    // Create timer userdata
+    void *ud = lua_newuserdata(L, sizeof(void *));
+    memcpy(ud, &timer, sizeof(void *));
+
+    luaL_setmetatable(L, "Timer");
+
+    return 1;
+}
+
 static void lua_state_push_modules(void) {
-    LOG("stack before %i", lua_gettop(L));
     lua_newtable(L);
     for (int idx = 0; idx < MODULE_CNT; idx++) {
         Module *mod = modules[idx];
         LOG("Pushing module '%s'", mod->shortName);
-        LOG("stack %i", lua_gettop(L));
 
         lua_newtable(L);
         mod->push_lua_functions(L);
@@ -81,7 +157,6 @@ static void lua_state_push_modules(void) {
     }
 
     lua_setfield(L, -2, "modules");
-    LOG("stack after %i", lua_gettop(L));
 }
 
 static void lua_state_push_libs(void) {
@@ -89,6 +164,30 @@ static void lua_state_push_libs(void) {
 
     lua_pushcfunction(L, lua_lib_register_keyboard_hook);
     lua_setfield(L, -2, "register_keyboard_hook");
+
+    {
+        // Create Timer metatable
+        luaL_newmetatable(L, "Timer");
+
+        lua_pushcfunction(L, lua_lib_timer_run);
+        lua_setfield(L, -2, "run");
+
+        lua_pushcfunction(L, lua_lib_timer_set_time);
+        lua_setfield(L, -2, "set_time");
+
+        lua_pushcfunction(L, lua_lib_timer_set_callback);
+        lua_setfield(L, -2, "set_callback");
+
+        lua_pushcfunction(L, lua_lib_timer_destroy);
+        lua_setfield(L, -2, "destroy");
+
+        lua_pushvalue(L, -1);
+        lua_setfield(L, -2, "__index");
+
+        lua_pop(L, 1);
+    }
+    lua_pushcfunction(L, lua_lib_create_timer);
+    lua_setfield(L, -2, "create_timer");
 
     lua_state_push_modules();
 
