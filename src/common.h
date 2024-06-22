@@ -62,22 +62,7 @@
 
 #ifdef _DEBUG
 #define ABORT() assert(0)
-#ifdef __MINGW32__
-#define LOG(fmt, ...) (printf("%s: " fmt "\n", __FUNCTION__, ##__VA_ARGS__))
-#else
-static void VsLog(const char *pFmt, ...) {
-    char buf[1024];
-    va_list args;
-
-    va_start(args, pFmt);
-    vsprintf_s(buf, 1024, pFmt, args);
-    va_end(args);
-
-    fprintf(stderr, "%s", buf);
-}
-
-#define LOG(fmt, ...) (VsLog(__FUNCTION__ ": " fmt "\n", ##__VA_ARGS__))
-#endif
+#define LOG(fmt, ...) fprintf(stderr, __FUNCTION__ ": " fmt "\n", ##__VA_ARGS__)
 
 // check for assert
 #ifndef assert
