@@ -141,7 +141,7 @@ extern Module bandwidthModule;
 extern Module *modules[MODULE_CNT]; // all modules in a list
 
 // lua
-extern lua_State *L;
+extern lua_State *g_luaState;
 extern void lua_state_init(void);
 extern void lua_state_close(void);
 
