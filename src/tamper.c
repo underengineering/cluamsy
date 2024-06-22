@@ -2,6 +2,7 @@
 #include "common.h"
 #include "iup.h"
 #include "windivert.h"
+#include <stdbool.h>
 #define NAME "tamper"
 
 static Ihandle *inboundCheckbox, *outboundCheckbox, *chanceInput,
@@ -115,7 +116,36 @@ static short tamperProcess(PacketNode *head, PacketNode *tail) {
     return tampered;
 }
 
+static int tamper_enable(lua_State *L) {
+    int type = lua_gettop(L) > 0 ? lua_type(L, -1) : LUA_TNIL;
+    switch (type) {
+    case LUA_TBOOLEAN:
+        bool enabled = lua_toboolean(L, -1);
+        tamperEnabled = enabled;
+        break;
+    case LUA_TNIL:
+        lua_pushboolean(L, tamperEnabled);
+        return 1;
+    default:
+        char message[256];
+        int message_length =
+            snprintf(message, sizeof(message),
+                     "Invalid argument #1 to tamper_enable: '%s'",
+                     lua_typename(L, type));
+        lua_pushlstring(L, message, message_length);
+        lua_error(L);
+        break;
+    }
+
+    return 0;
+}
+
+static void push_lua_functions(lua_State *L) {
+    lua_pushcfunction(L, tamper_enable);
+    lua_setfield(L, -2, "enable");
+}
+
 Module tamperModule = {"Tamper", NAME, (short *)&tamperEnabled, tamperSetupUI,
                        tamperStartup, tamperCloseDown, tamperProcess,
                        // runtime fields
-                       0, 0, NULL};
+                       0, 0, NULL, push_lua_functions};

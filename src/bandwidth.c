@@ -1,5 +1,6 @@
 // bandwidth cap module
 #include <Windows.h>
+#include <stdbool.h>
 #include <stdint.h>
 #include <stdlib.h>
 
@@ -139,11 +140,40 @@ static short bandwidthProcess(PacketNode *head, PacketNode *tail) {
 //---------------------------------------------------------------------
 // module
 //---------------------------------------------------------------------
+static int bandwidth_enable(lua_State *L) {
+    int type = lua_gettop(L) > 0 ? lua_type(L, -1) : LUA_TNIL;
+    switch (type) {
+    case LUA_TBOOLEAN:
+        bool enabled = lua_toboolean(L, -1);
+        bandwidthEnabled = enabled;
+        break;
+    case LUA_TNIL:
+        lua_pushboolean(L, bandwidthEnabled);
+        return 1;
+    default:
+        char message[256];
+        int message_length =
+            snprintf(message, sizeof(message),
+                     "Invalid argument #1 to bandwidth_enable: '%s'",
+                     lua_typename(L, type));
+        lua_pushlstring(L, message, message_length);
+        lua_error(L);
+        break;
+    }
+
+    return 0;
+}
+
+static void push_lua_functions(lua_State *L) {
+    lua_pushcfunction(L, bandwidth_enable);
+    lua_setfield(L, -2, "enable");
+}
+
 Module bandwidthModule = {"Bandwidth", NAME, (short *)&bandwidthEnabled,
                           bandwidthSetupUI, bandwidthStartUp,
                           bandwidthCloseDown, bandwidthProcess,
                           // runtime fields
-                          0, 0, NULL};
+                          0, 0, NULL, push_lua_functions};
 
 //---------------------------------------------------------------------
 // create new CRateStat

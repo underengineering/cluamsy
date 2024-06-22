@@ -127,6 +127,7 @@ typedef struct {
     short
         processTriggered; // whether this module has been triggered in last step
     Ihandle *iconHandle;  // store the icon to be updated
+    void (*push_lua_functions)(lua_State *L);
 } Module;
 
 extern Module lagModule;

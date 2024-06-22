@@ -1,6 +1,7 @@
 // lagging packets
 #include "common.h"
 #include "iup.h"
+#include <stdbool.h>
 #define NAME "lag"
 #define LAG_MIN "0"
 #define LAG_MAX "15000"
@@ -119,7 +120,35 @@ static short lagProcess(PacketNode *head, PacketNode *tail) {
     return bufSize > 0;
 }
 
+static int lag_enable(lua_State *L) {
+    int type = lua_gettop(L) > 0 ? lua_type(L, -1) : LUA_TNIL;
+    switch (type) {
+    case LUA_TBOOLEAN:
+        bool enabled = lua_toboolean(L, -1);
+        lagEnabled = enabled;
+        break;
+    case LUA_TNIL:
+        lua_pushboolean(L, lagEnabled);
+        return 1;
+    default:
+        char message[256];
+        int message_length = snprintf(message, sizeof(message),
+                                      "Invalid argument #1 to lag_enable: '%s'",
+                                      lua_typename(L, type));
+        lua_pushlstring(L, message, message_length);
+        lua_error(L);
+        break;
+    }
+
+    return 0;
+}
+
+static void push_lua_functions(lua_State *L) {
+    lua_pushcfunction(L, lag_enable);
+    lua_setfield(L, -2, "enable");
+}
+
 Module lagModule = {"Lag", NAME, (short *)&lagEnabled, lagSetupUI, lagStartUp,
                     lagCloseDown, lagProcess,
                     // runtime fields
-                    0, 0, NULL};
+                    0, 0, NULL, push_lua_functions};

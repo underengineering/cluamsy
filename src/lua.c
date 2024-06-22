@@ -1,10 +1,10 @@
+#include <stdbool.h>
 #define WIN32_LEAN_AND_MEAN
 #include <Windows.h>
 
 #include "lauxlib.h"
 #include "lua.h"
 #include "lualib.h"
-#include <stdint.h>
 
 #include "common.h"
 
@@ -13,44 +13,17 @@ lua_State *L = NULL;
 static char HOOK_KEY = 0;
 static HANDLE g_hookHandle = NULL;
 
-static void lua_pushnumber64(lua_State *L, uint64_t value) {
-    lua_createtable(L, 0, 2);
-    lua_pushnumber(L, (lua_Number)(value >> 32));
-    lua_setfield(L, -2, "hi");
-    lua_pushnumber(L, (lua_Number)(value & 0xFFFFFFFF));
-    lua_setfield(L, -2, "lo");
-}
+void lua_pushkbdll(lua_State *L, KBDLLHOOKSTRUCT *value) {
+    lua_createtable(L, 0, 3);
 
-static uint64_t lua_tonumber64(lua_State *L, int idx) {
-    int type;
-    switch ((type = lua_type(L, idx))) {
-    case LUA_TSTRING:
-    case LUA_TNUMBER:
-        return (uint64_t)lua_tonumber(L, idx);
-    case LUA_TTABLE:
-        lua_insert(L, idx);
+    lua_pushnumber(L, value->vkCode);
+    lua_setfield(L, -2, "vk_code");
 
-        lua_getfield(L, -1, "hi");
-        uint32_t hi = (uint32_t)lua_tonumber(L, -1);
+    lua_pushnumber(L, value->scanCode);
+    lua_setfield(L, -2, "scan_code");
 
-        lua_getfield(L, -2, "lo");
-        uint32_t lo = (uint32_t)lua_tonumber(L, -1);
-
-        lua_pop(L, 2); // Pop hi & lo
-
-        return ((uint64_t)hi << 32) | lo;
-    default:
-        char message[256];
-        int message_length =
-            snprintf(message, sizeof(message),
-                     "Invalid argument #1 to lua_tonumber64: '%s'",
-                     lua_typename(L, type));
-        lua_pushlstring(L, message, message_length);
-        lua_error(L);
-        break;
-    }
-
-    return 0;
+    lua_pushnumber(L, value->flags);
+    lua_setfield(L, -2, "flags");
 }
 
 LRESULT CALLBACK LowLevelKeyboardProc(int code, WPARAM w_param,
@@ -60,18 +33,19 @@ LRESULT CALLBACK LowLevelKeyboardProc(int code, WPARAM w_param,
     lua_gettable(L, LUA_REGISTRYINDEX);
 
     lua_pushnumber(L, code);
-    lua_pushnumber64(L, w_param);
-    lua_pushnumber64(L, l_param);
+    lua_pushnumber(L, (lua_Number)w_param);
+    lua_pushkbdll(L, (KBDLLHOOKSTRUCT *)l_param);
     if (lua_pcall(L, 3, 1, 0) != LUA_OK) {
         LOG("lua_pcall: %s", lua_tostring(L, -1));
         lua_pop(L, 1);
         return CallNextHookEx(g_hookHandle, code, w_param, l_param);
     }
 
-    LRESULT result = lua_tonumber64(L, -1);
+    bool call_next = lua_toboolean(L, -1);
     lua_pop(L, 1);
 
-    return result;
+    return call_next ? CallNextHookEx(g_hookHandle, code, w_param, l_param)
+                     : -1;
 }
 
 static int lua_lib_register_keyboard_hook(lua_State *L) {
@@ -93,15 +67,21 @@ static int lua_lib_register_keyboard_hook(lua_State *L) {
     return 0;
 }
 
-static int lua_lib_call_next_hook(lua_State *L) {
-    int code = (int)lua_tonumber(L, -1);
-    WPARAM w_param = lua_tonumber64(L, -2);
-    LPARAM l_param = lua_tonumber64(L, -3);
+static void lua_state_push_modules(void) {
+    LOG("stack before %i", lua_gettop(L));
+    lua_newtable(L);
+    for (int idx = 0; idx < MODULE_CNT; idx++) {
+        Module *mod = modules[idx];
+        LOG("Pushing module '%s'", mod->shortName);
+        LOG("stack %i", lua_gettop(L));
 
-    LRESULT result = CallNextHookEx(g_hookHandle, code, w_param, l_param);
-    lua_pushnumber64(L, result);
+        lua_newtable(L);
+        mod->push_lua_functions(L);
+        lua_setfield(L, -2, mod->shortName);
+    }
 
-    return 1;
+    lua_setfield(L, -2, "modules");
+    LOG("stack after %i", lua_gettop(L));
 }
 
 static void lua_state_push_libs(void) {
@@ -110,8 +90,7 @@ static void lua_state_push_libs(void) {
     lua_pushcfunction(L, lua_lib_register_keyboard_hook);
     lua_setfield(L, -2, "register_keyboard_hook");
 
-    lua_pushcfunction(L, lua_lib_call_next_hook);
-    lua_setfield(L, -2, "call_next_hook");
+    lua_state_push_modules();
 
     lua_setglobal(L, "cluamsy");
 }
