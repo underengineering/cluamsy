@@ -128,7 +128,7 @@ static int lua_lib_timer_destroy(lua_State *L) {
     lua_pushnil(L);
     lua_settable(L, LUA_REGISTRYINDEX);
 
-    return 1;
+    return 0;
 }
 
 static int lua_lib_create_timer(lua_State *L) {
