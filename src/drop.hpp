@@ -12,7 +12,7 @@ public:
     virtual bool draw();
 
     virtual void enable();
-    virtual bool process();
+    virtual void process();
     virtual void disable();
 
 public:

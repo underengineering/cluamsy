@@ -9,6 +9,16 @@ bool DropModule::draw() {
     bool dirty = false;
 
     ImGui::BeginGroup();
+
+    ImGui::Text(m_indicator > 0.f ? "[*]" : "[ ]");
+    if (m_indicator > 0.f) {
+        m_indicator -= ImGui::GetIO().DeltaTime;
+        if (m_indicator <= 0.f)
+            dirty = true;
+    }
+
+    ImGui::SameLine();
+
     ImGui::Text("%s", m_display_name);
 
     ImGui::SameLine();
@@ -36,7 +46,7 @@ bool DropModule::draw() {
 }
 
 void DropModule::enable() {}
-bool DropModule::process() {
+void DropModule::process() {
     int dropped = 0;
     for (auto it = g_packets.begin(); it != g_packets.end();) {
         auto& packet = *it;
@@ -53,6 +63,9 @@ bool DropModule::process() {
         }
     }
 
-    return dropped > 0;
+    if (dropped > 0) {
+        m_indicator = 0.01f;
+        m_dirty = true;
+    }
 }
 void DropModule::disable() {}

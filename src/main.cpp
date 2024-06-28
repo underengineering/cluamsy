@@ -217,7 +217,15 @@ public:
             SDL_Event event;
             if (SDL_PollEvent(&event) <= 0) {
                 SDL_Delay(10);
-                if (!m_dirty)
+
+                // Check if modules need to be rerendered
+                bool modules_dirty = false;
+                for (auto& module : g_modules) {
+                    modules_dirty |= module->m_dirty;
+                    module->m_dirty = false;
+                }
+
+                if (!m_dirty && !modules_dirty)
                     continue;
 
                 m_dirty = false;
@@ -262,7 +270,7 @@ public:
         ImGui::InputText("Filter", &m_filter);
 
         for (const auto& module : g_modules) {
-            module->draw();
+            m_dirty |= module->draw();
         }
 
         ImGui::End();
