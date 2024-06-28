@@ -50,7 +50,6 @@ void DropModule::process() {
     int dropped = 0;
     for (auto it = g_packets.begin(); it != g_packets.end();) {
         auto& packet = *it;
-        // chance in range of [0, 10000]
         if (checkDirection(packet.addr.Outbound, m_drop_inbound,
                            m_drop_outbound) &&
             calcChance(m_chance)) {
