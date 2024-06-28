@@ -10,11 +10,13 @@ bool DropModule::draw() {
 
     ImGui::BeginGroup();
 
-    ImGui::Text(m_indicator > 0.f ? "[*]" : "[ ]");
+    ImGui::PushStyleColor(ImGuiCol_Text, {m_indicator / 0.01f, 0.f, 0.f, 1.f});
+    ImGui::Bullet();
+    ImGui::PopStyleColor();
+
     if (m_indicator > 0.f) {
         m_indicator -= ImGui::GetIO().DeltaTime;
-        if (m_indicator <= 0.f)
-            dirty = true;
+        dirty = true;
     }
 
     ImGui::SameLine();
