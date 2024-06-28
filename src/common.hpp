@@ -104,10 +104,8 @@ void divertStop();
 #define STR_HELPER(x) #x
 #define STR(x) STR_HELPER(x)
 
-inline short calcChance(short chance) {
-    // notice that here we made a copy of chance, so even though it's volatile
-    // it is still ok
-    return (chance == 10000) || ((rand() % 10000) < chance);
+inline bool calcChance(float chance) {
+    return static_cast<float>(rand()) / RAND_MAX * 100.f < chance;
 }
 
 // inline helper for inbound outbound check

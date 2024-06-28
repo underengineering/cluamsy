@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <imgui.h>
 
 #include "common.hpp"
@@ -9,7 +10,26 @@ bool DropModule::draw() {
 
     ImGui::BeginGroup();
     ImGui::Text("%s", m_display_name);
+
+    ImGui::SameLine();
+
     dirty |= ImGui::Checkbox("Enable", &m_enabled);
+
+    ImGui::SameLine();
+
+    dirty |= ImGui::Checkbox("Inbound", &m_drop_inbound);
+
+    ImGui::SameLine();
+
+    dirty |= ImGui::Checkbox("Outbound", &m_drop_outbound);
+
+    ImGui::SameLine();
+
+    if (ImGui::InputFloat("Chance", &m_chance)) {
+        m_chance = std::clamp(m_chance, 0.f, 100.f);
+        dirty = true;
+    }
+
     ImGui::EndGroup();
 
     return dirty;
@@ -21,9 +41,10 @@ bool DropModule::process() {
     for (auto it = g_packets.begin(); it != g_packets.end();) {
         auto& packet = *it;
         // chance in range of [0, 10000]
-        if (checkDirection(packet.addr.Outbound, dropInbound, dropOutbound) &&
-            calcChance(chance)) {
-            LOG("dropped with chance %.1f%%, direction %s", chance / 100.0,
+        if (checkDirection(packet.addr.Outbound, m_drop_inbound,
+                           m_drop_outbound) &&
+            calcChance(m_chance)) {
+            LOG("Dropped with chance %.1f%%, direction %s", m_chance,
                 packet.addr.Outbound ? "OUTBOUND" : "INBOUND");
             it = g_packets.erase(it);
             ++dropped;
