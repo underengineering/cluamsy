@@ -10,12 +10,12 @@ bool DropModule::draw() {
 
     ImGui::BeginGroup();
 
-    ImGui::PushStyleColor(ImGuiCol_Text, {m_indicator / 0.01f, 0.f, 0.f, 1.f});
+    ImGui::PushStyleColor(ImGuiCol_Text, {m_indicator, 0.f, 0.f, 1.f});
     ImGui::Bullet();
     ImGui::PopStyleColor();
 
     if (m_indicator > 0.f) {
-        m_indicator -= ImGui::GetIO().DeltaTime;
+        m_indicator -= ImGui::GetIO().DeltaTime * 10.f;
         dirty = true;
     }
 
@@ -65,7 +65,7 @@ void DropModule::process() {
     }
 
     if (dropped > 0) {
-        m_indicator = 0.01f;
+        m_indicator = 1.f;
         m_dirty = true;
     }
 }
