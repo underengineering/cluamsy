@@ -31,8 +31,8 @@ static INLINE_FUNCTION short isBufEmpty() {
     return ret;
 }
 
-static Ihandle *throttleSetupUI() {
-    Ihandle *throttleControlsBox =
+static Ihandle* throttleSetupUI() {
+    Ihandle* throttleControlsBox =
         IupHbox(dropThrottledCheckbox = IupToggle("Drop Throttled", NULL),
                 IupLabel("Timeframe(ms):"), frameInput = IupText(NULL),
                 inboundCheckbox = IupToggle("Inbound", NULL),
@@ -42,20 +42,19 @@ static Ihandle *throttleSetupUI() {
     IupSetAttribute(chanceInput, "VISIBLECOLUMNS", "4");
     IupSetAttribute(chanceInput, "VALUE", "10.0");
     IupSetCallback(chanceInput, "VALUECHANGED_CB", uiSyncChance);
-    IupSetAttribute(chanceInput, SYNCED_VALUE, (char *)&chance);
+    IupSetAttribute(chanceInput, SYNCED_VALUE, (char*)&chance);
     IupSetCallback(inboundCheckbox, "ACTION", (Icallback)uiSyncToggle);
-    IupSetAttribute(inboundCheckbox, SYNCED_VALUE, (char *)&throttleInbound);
+    IupSetAttribute(inboundCheckbox, SYNCED_VALUE, (char*)&throttleInbound);
     IupSetCallback(outboundCheckbox, "ACTION", (Icallback)uiSyncToggle);
-    IupSetAttribute(outboundCheckbox, SYNCED_VALUE, (char *)&throttleOutbound);
+    IupSetAttribute(outboundCheckbox, SYNCED_VALUE, (char*)&throttleOutbound);
     IupSetCallback(dropThrottledCheckbox, "ACTION", (Icallback)uiSyncToggle);
-    IupSetAttribute(dropThrottledCheckbox, SYNCED_VALUE,
-                    (char *)&dropThrottled);
+    IupSetAttribute(dropThrottledCheckbox, SYNCED_VALUE, (char*)&dropThrottled);
 
     // sync throttle packet number
     IupSetAttribute(frameInput, "VISIBLECOLUMNS", "3");
     IupSetAttribute(frameInput, "VALUE", STR(TIME_DEFAULT));
     IupSetCallback(frameInput, "VALUECHANGED_CB", (Icallback)uiSyncInteger);
-    IupSetAttribute(frameInput, SYNCED_VALUE, (char *)&throttleFrame);
+    IupSetAttribute(frameInput, SYNCED_VALUE, (char*)&throttleFrame);
     IupSetAttribute(frameInput, INTEGER_MAX, TIME_MAX);
     IupSetAttribute(frameInput, INTEGER_MIN, TIME_MIN);
 
@@ -85,8 +84,8 @@ static void throttleStartUp() {
     startTimePeriod();
 }
 
-static void clearBufPackets(PacketNode *tail) {
-    PacketNode *oldLast = tail->prev;
+static void clearBufPackets(PacketNode* tail) {
+    PacketNode* oldLast = tail->prev;
     LOG("Throttled end, send all %d packets. Buffer at max: %s", bufSize,
         bufSize == KEEP_AT_MOST ? "YES" : "NO");
     while (!isBufEmpty()) {
@@ -106,14 +105,14 @@ static void dropBufPackets() {
     throttleStartTick = 0;
 }
 
-static void throttleCloseDown(PacketNode *head, PacketNode *tail) {
+static void throttleCloseDown(PacketNode* head, PacketNode* tail) {
     UNREFERENCED_PARAMETER(tail);
     UNREFERENCED_PARAMETER(head);
     clearBufPackets(tail);
     endTimePeriod();
 }
 
-static short throttleProcess(PacketNode *head, PacketNode *tail) {
+static short throttleProcess(PacketNode* head, PacketNode* tail) {
     short throttled = FALSE;
     UNREFERENCED_PARAMETER(head);
     if (!throttleStartTick) {
@@ -130,7 +129,7 @@ static short throttleProcess(PacketNode *head, PacketNode *tail) {
         // start a block for declaring local variables
         {
             // already throttling, keep filling up
-            PacketNode *pac = tail->prev;
+            PacketNode* pac = tail->prev;
             DWORD currentTick = timeGetTime();
             while (bufSize < KEEP_AT_MOST && pac != head) {
                 if (checkDirection(pac->addr.Outbound, throttleInbound,
@@ -159,7 +158,7 @@ static short throttleProcess(PacketNode *head, PacketNode *tail) {
     return throttled;
 }
 
-static int throttle_enable(lua_State *L) {
+static int throttle_enable(lua_State* L) {
     int type = lua_gettop(L) > 0 ? lua_type(L, -1) : LUA_TNIL;
     switch (type) {
     case LUA_TBOOLEAN:
@@ -183,12 +182,12 @@ static int throttle_enable(lua_State *L) {
     return 0;
 }
 
-static void push_lua_functions(lua_State *L) {
+static void push_lua_functions(lua_State* L) {
     lua_pushcfunction(L, throttle_enable);
     lua_setfield(L, -2, "enable");
 }
 
-Module throttleModule = {"Throttle", NAME, (short *)&throttleEnabled,
+Module throttleModule = {"Throttle", NAME, (short*)&throttleEnabled,
                          throttleSetupUI, throttleStartUp, throttleCloseDown,
                          throttleProcess,
                          // runtime fields

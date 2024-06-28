@@ -9,12 +9,12 @@
 
 #include "common.h"
 
-lua_State *g_luaState = NULL;
+lua_State* g_luaState = NULL;
 
 static char HOOK_KEY = 0;
 static HANDLE g_hookHandle = NULL;
 
-static void lua_pushkbdll(lua_State *L, KBDLLHOOKSTRUCT *value) {
+static void lua_pushkbdll(lua_State* L, KBDLLHOOKSTRUCT* value) {
     lua_createtable(L, 0, 3);
 
     lua_pushnumber(L, value->vkCode);
@@ -35,7 +35,7 @@ static LRESULT CALLBACK LowLevelKeyboardProc(int code, WPARAM w_param,
 
     lua_pushnumber(g_luaState, code);
     lua_pushnumber(g_luaState, (lua_Number)w_param);
-    lua_pushkbdll(g_luaState, (KBDLLHOOKSTRUCT *)l_param);
+    lua_pushkbdll(g_luaState, (KBDLLHOOKSTRUCT*)l_param);
     if (lua_pcall(g_luaState, 3, 1, 0) != LUA_OK) {
         LOG("lua_pcall: %s", lua_tostring(g_luaState, -1));
         lua_pop(g_luaState, 1);
@@ -49,7 +49,7 @@ static LRESULT CALLBACK LowLevelKeyboardProc(int code, WPARAM w_param,
                      : -1;
 }
 
-static int lua_lib_register_keyboard_hook(lua_State *L) {
+static int lua_lib_register_keyboard_hook(lua_State* L) {
     luaL_checktype(L, -1, LUA_TFUNCTION);
     if (g_hookHandle != NULL) {
         lua_pushliteral(L,
@@ -68,7 +68,7 @@ static int lua_lib_register_keyboard_hook(lua_State *L) {
     return 0;
 }
 
-static int timer_callback(Ihandle *handle) {
+static int timer_callback(Ihandle* handle) {
     // Get callback from registry
     lua_pushlightuserdata(g_luaState, handle);
     lua_gettable(g_luaState, LUA_REGISTRYINDEX);
@@ -81,32 +81,32 @@ static int timer_callback(Ihandle *handle) {
     return 0;
 }
 
-static int lua_lib_timer_run(lua_State *L) {
+static int lua_lib_timer_run(lua_State* L) {
     luaL_checktype(L, 1, LUA_TUSERDATA);
 
     bool run = lua_toboolean(L, 2);
 
-    Ihandle *handle = *(Ihandle **)lua_touserdata(L, 1);
+    Ihandle* handle = *(Ihandle**)lua_touserdata(L, 1);
     IupSetAttribute(handle, "RUN", run ? "YES" : "NO");
 
     return 1;
 }
 
-static int lua_lib_timer_set_time(lua_State *L) {
+static int lua_lib_timer_set_time(lua_State* L) {
     luaL_checktype(L, 1, LUA_TUSERDATA);
 
-    const char *time = luaL_checkstring(L, 2);
-    Ihandle *handle = *(Ihandle **)lua_touserdata(L, 1);
+    const char* time = luaL_checkstring(L, 2);
+    Ihandle* handle = *(Ihandle**)lua_touserdata(L, 1);
     IupSetAttribute(handle, "TIME", time);
 
     return 1;
 }
 
-static int lua_lib_timer_set_callback(lua_State *L) {
+static int lua_lib_timer_set_callback(lua_State* L) {
     luaL_checktype(L, 1, LUA_TUSERDATA);
     luaL_checktype(L, 2, LUA_TFUNCTION);
 
-    Ihandle *handle = *(Ihandle **)lua_touserdata(L, 1);
+    Ihandle* handle = *(Ihandle**)lua_touserdata(L, 1);
     IupSetCallback(handle, "ACTION_CB", timer_callback);
 
     // Place callback in the registry
@@ -117,10 +117,10 @@ static int lua_lib_timer_set_callback(lua_State *L) {
     return 1;
 }
 
-static int lua_lib_timer_destroy(lua_State *L) {
+static int lua_lib_timer_destroy(lua_State* L) {
     luaL_checktype(L, -1, LUA_TUSERDATA);
 
-    Ihandle *handle = *(Ihandle **)lua_touserdata(L, 1);
+    Ihandle* handle = *(Ihandle**)lua_touserdata(L, 1);
     IupDestroy(handle);
 
     // Remove callback from registry
@@ -131,14 +131,14 @@ static int lua_lib_timer_destroy(lua_State *L) {
     return 0;
 }
 
-static int lua_lib_create_timer(lua_State *L) {
+static int lua_lib_create_timer(lua_State* L) {
     luaL_checknumber(L, -1);
 
-    Ihandle *timer = IupTimer();
+    Ihandle* timer = IupTimer();
 
     // Create timer userdata
-    void *ud = lua_newuserdata(L, sizeof(void *));
-    memcpy(ud, &timer, sizeof(void *));
+    void* ud = lua_newuserdata(L, sizeof(void*));
+    memcpy(ud, &timer, sizeof(void*));
 
     luaL_setmetatable(L, "Timer");
 
@@ -148,7 +148,7 @@ static int lua_lib_create_timer(lua_State *L) {
 static void lua_state_push_modules(void) {
     lua_newtable(g_luaState);
     for (int idx = 0; idx < MODULE_CNT; idx++) {
-        Module *mod = modules[idx];
+        Module* mod = modules[idx];
         LOG("Pushing module '%s'", mod->shortName);
 
         lua_newtable(g_luaState);

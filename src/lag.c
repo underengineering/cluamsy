@@ -27,8 +27,8 @@ static INLINE_FUNCTION short isBufEmpty() {
     return ret;
 }
 
-static Ihandle *lagSetupUI() {
-    Ihandle *lagControlsBox =
+static Ihandle* lagSetupUI() {
+    Ihandle* lagControlsBox =
         IupHbox(inboundCheckbox = IupToggle("Inbound", NULL),
                 outboundCheckbox = IupToggle("Outbound", NULL),
                 IupLabel("Delay(ms):"), timeInput = IupText(NULL), NULL);
@@ -36,13 +36,13 @@ static Ihandle *lagSetupUI() {
     IupSetAttribute(timeInput, "VISIBLECOLUMNS", "4");
     IupSetAttribute(timeInput, "VALUE", STR(LAG_DEFAULT));
     IupSetCallback(timeInput, "VALUECHANGED_CB", uiSyncInteger);
-    IupSetAttribute(timeInput, SYNCED_VALUE, (char *)&lagTime);
+    IupSetAttribute(timeInput, SYNCED_VALUE, (char*)&lagTime);
     IupSetAttribute(timeInput, INTEGER_MAX, LAG_MAX);
     IupSetAttribute(timeInput, INTEGER_MIN, LAG_MIN);
     IupSetCallback(inboundCheckbox, "ACTION", (Icallback)uiSyncToggle);
-    IupSetAttribute(inboundCheckbox, SYNCED_VALUE, (char *)&lagInbound);
+    IupSetAttribute(inboundCheckbox, SYNCED_VALUE, (char*)&lagInbound);
     IupSetCallback(outboundCheckbox, "ACTION", (Icallback)uiSyncToggle);
-    IupSetAttribute(outboundCheckbox, SYNCED_VALUE, (char *)&lagOutbound);
+    IupSetAttribute(outboundCheckbox, SYNCED_VALUE, (char*)&lagOutbound);
 
     // enable by default to avoid confusing
     IupSetAttribute(inboundCheckbox, "VALUE", "ON");
@@ -68,8 +68,8 @@ static void lagStartUp() {
     startTimePeriod();
 }
 
-static void lagCloseDown(PacketNode *head, PacketNode *tail) {
-    PacketNode *oldLast = tail->prev;
+static void lagCloseDown(PacketNode* head, PacketNode* tail) {
+    PacketNode* oldLast = tail->prev;
     UNREFERENCED_PARAMETER(head);
     // flush all buffered packets
     LOG("Closing down lag, flushing %d packets", bufSize);
@@ -80,9 +80,9 @@ static void lagCloseDown(PacketNode *head, PacketNode *tail) {
     endTimePeriod();
 }
 
-static short lagProcess(PacketNode *head, PacketNode *tail) {
+static short lagProcess(PacketNode* head, PacketNode* tail) {
     DWORD currentTime = timeGetTime();
-    PacketNode *pac = tail->prev;
+    PacketNode* pac = tail->prev;
     // pick up all packets and fill in the current time
     while (bufSize < KEEP_AT_MOST && pac != head) {
         if (checkDirection(pac->addr.Outbound, lagInbound, lagOutbound)) {
@@ -120,7 +120,7 @@ static short lagProcess(PacketNode *head, PacketNode *tail) {
     return bufSize > 0;
 }
 
-static int lag_enable(lua_State *L) {
+static int lag_enable(lua_State* L) {
     int type = lua_gettop(L) > 0 ? lua_type(L, -1) : LUA_TNIL;
     switch (type) {
     case LUA_TBOOLEAN:
@@ -143,12 +143,12 @@ static int lag_enable(lua_State *L) {
     return 0;
 }
 
-static void push_lua_functions(lua_State *L) {
+static void push_lua_functions(lua_State* L) {
     lua_pushcfunction(L, lag_enable);
     lua_setfield(L, -2, "enable");
 }
 
-Module lagModule = {"Lag", NAME, (short *)&lagEnabled, lagSetupUI, lagStartUp,
+Module lagModule = {"Lag", NAME, (short*)&lagEnabled, lagSetupUI, lagStartUp,
                     lagCloseDown, lagProcess,
                     // runtime fields
                     0, 0, NULL, push_lua_functions};

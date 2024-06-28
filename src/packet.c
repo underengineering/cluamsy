@@ -16,9 +16,9 @@ void initPacketNodeList() {
 
 // TODO  using malloc in the loop is not good for performance
 //       just not sure I can write a better memory allocator
-PacketNode *createNode(char *buf, UINT len, WINDIVERT_ADDRESS *addr) {
-    PacketNode *newNode = (PacketNode *)malloc(sizeof(PacketNode));
-    newNode->packet = (char *)malloc(len);
+PacketNode* createNode(char* buf, UINT len, WINDIVERT_ADDRESS* addr) {
+    PacketNode* newNode = (PacketNode*)malloc(sizeof(PacketNode));
+    newNode->packet = (char*)malloc(len);
     memcpy(newNode->packet, buf, len);
     newNode->packetLen = len;
     memcpy(&(newNode->addr), addr, sizeof(WINDIVERT_ADDRESS));
@@ -26,20 +26,20 @@ PacketNode *createNode(char *buf, UINT len, WINDIVERT_ADDRESS *addr) {
     return newNode;
 }
 
-void freeNode(PacketNode *node) {
+void freeNode(PacketNode* node) {
     assert((node != head) && (node != tail));
     free(node->packet);
     free(node);
 }
 
-PacketNode *popNode(PacketNode *node) {
+PacketNode* popNode(PacketNode* node) {
     assert((node != head) && (node != tail));
     node->prev->next = node->next;
     node->next->prev = node->prev;
     return node;
 }
 
-PacketNode *insertAfter(PacketNode *node, PacketNode *target) {
+PacketNode* insertAfter(PacketNode* node, PacketNode* target) {
     assert(node && node != head && node != tail && target != tail);
     node->prev = target;
     node->next = target->next;
@@ -48,7 +48,7 @@ PacketNode *insertAfter(PacketNode *node, PacketNode *target) {
     return node;
 }
 
-PacketNode *insertBefore(PacketNode *node, PacketNode *target) {
+PacketNode* insertBefore(PacketNode* node, PacketNode* target) {
     assert(node && node != head && node != tail && target != head);
     node->next = target;
     node->prev = target->prev;
@@ -57,6 +57,6 @@ PacketNode *insertBefore(PacketNode *node, PacketNode *target) {
     return node;
 }
 
-PacketNode *appendNode(PacketNode *node) { return insertBefore(node, tail); }
+PacketNode* appendNode(PacketNode* node) { return insertBefore(node, tail); }
 
 short isListEmpty() { return head->next == tail; }

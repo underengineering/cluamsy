@@ -38,25 +38,25 @@
 #undef InterlockedAnd16
 #endif
 #define InterlockedAnd16(p, val)                                               \
-    (__atomic_and_fetch((short *)(p), (val), __ATOMIC_SEQ_CST))
+    (__atomic_and_fetch((short*)(p), (val), __ATOMIC_SEQ_CST))
 
 #ifdef InterlockedExchange16
 #undef InterlockedExchange16
 #endif
 #define InterlockedExchange16(p, val)                                          \
-    (__atomic_exchange_n((short *)(p), (val), __ATOMIC_SEQ_CST))
+    (__atomic_exchange_n((short*)(p), (val), __ATOMIC_SEQ_CST))
 
 #ifdef InterlockedIncrement16
 #undef InterlockedIncrement16
 #endif
 #define InterlockedIncrement16(p)                                              \
-    (__atomic_add_fetch((short *)(p), 1, __ATOMIC_SEQ_CST))
+    (__atomic_add_fetch((short*)(p), 1, __ATOMIC_SEQ_CST))
 
 #ifdef InterlockedDecrement16
 #undef InterlockedDecrement16
 #endif
 #define InterlockedDecrement16(p)                                              \
-    (__atomic_sub_fetch((short *)(p), 1, __ATOMIC_SEQ_CST))
+    (__atomic_sub_fetch((short*)(p), 1, __ATOMIC_SEQ_CST))
 
 #endif
 
@@ -83,7 +83,7 @@
 
 // package node
 typedef struct _NODE {
-    char *packet;
+    char* packet;
     UINT packetLen;
     WINDIVERT_ADDRESS addr;
     DWORD timestamp; // ! timestamp isn't filled when creating node since it's
@@ -92,42 +92,42 @@ typedef struct _NODE {
 } PacketNode;
 
 void initPacketNodeList();
-PacketNode *createNode(char *buf, UINT len, WINDIVERT_ADDRESS *addr);
-void freeNode(PacketNode *node);
-PacketNode *popNode(PacketNode *node);
-PacketNode *insertBefore(PacketNode *node, PacketNode *target);
-PacketNode *insertAfter(PacketNode *node, PacketNode *target);
-PacketNode *appendNode(PacketNode *node);
+PacketNode* createNode(char* buf, UINT len, WINDIVERT_ADDRESS* addr);
+void freeNode(PacketNode* node);
+PacketNode* popNode(PacketNode* node);
+PacketNode* insertBefore(PacketNode* node, PacketNode* target);
+PacketNode* insertAfter(PacketNode* node, PacketNode* target);
+PacketNode* appendNode(PacketNode* node);
 short isListEmpty();
 
 // shared ui handlers
-int uiSyncChance(Ihandle *ih);
-int uiSyncToggle(Ihandle *ih, int state);
-int uiSyncInteger(Ihandle *ih);
-int uiSyncFixed(Ihandle *ih);
-int uiSyncInt32(Ihandle *ih);
+int uiSyncChance(Ihandle* ih);
+int uiSyncToggle(Ihandle* ih, int state);
+int uiSyncInteger(Ihandle* ih);
+int uiSyncFixed(Ihandle* ih);
+int uiSyncInt32(Ihandle* ih);
 
 // module
 typedef struct {
     /*
      * Static module data
      */
-    const char *displayName; // display name shown in ui
-    const char *shortName;   // single word name
-    short *enabledFlag;      // volatile short flag to determine enabled or not
-    Ihandle *(*setupUIFunc)(); // return hbox as controls group
+    const char* displayName; // display name shown in ui
+    const char* shortName;   // single word name
+    short* enabledFlag;      // volatile short flag to determine enabled or not
+    Ihandle* (*setupUIFunc)(); // return hbox as controls group
     void (*startUp)();         // called when starting up the module
-    void (*closeDown)(PacketNode *head,
-                      PacketNode *tail); // called when starting up the module
-    short (*process)(PacketNode *head, PacketNode *tail);
+    void (*closeDown)(PacketNode* head,
+                      PacketNode* tail); // called when starting up the module
+    short (*process)(PacketNode* head, PacketNode* tail);
     /*
      * Flags used during program excution. Need to be re initialized on each run
      */
     short lastEnabled; // if it is enabled on last run
     short
         processTriggered; // whether this module has been triggered in last step
-    Ihandle *iconHandle;  // store the icon to be updated
-    void (*push_lua_functions)(lua_State *L);
+    Ihandle* iconHandle;  // store the icon to be updated
+    void (*push_lua_functions)(lua_State* L);
 } Module;
 
 extern Module lagModule;
@@ -138,10 +138,10 @@ extern Module dupModule;
 extern Module tamperModule;
 extern Module resetModule;
 extern Module bandwidthModule;
-extern Module *modules[MODULE_CNT]; // all modules in a list
+extern Module* modules[MODULE_CNT]; // all modules in a list
 
 // lua
-extern lua_State *g_luaState;
+extern lua_State* g_luaState;
 extern void lua_state_init(void);
 extern void lua_state_close(void);
 
@@ -152,10 +152,10 @@ extern void lua_state_close(void);
 extern volatile short sendState;
 
 // Iup GUI
-void showStatus(const char *line);
+void showStatus(const char* line);
 
 // WinDivert
-int divertStart(const char *filter, char buf[]);
+int divertStart(const char* filter, char buf[]);
 void divertStop();
 
 // utils
@@ -188,5 +188,5 @@ extern const unsigned char icon8x8[8 * 8];
 
 // parameterized
 extern BOOL parameterized;
-void setFromParameter(Ihandle *ih, const char *field, const char *key);
-BOOL parseArgs(int argc, char *argv[]);
+void setFromParameter(Ihandle* ih, const char* field, const char* key);
+BOOL parseArgs(int argc, char* argv[]);

@@ -18,8 +18,8 @@ static DWORD divertReadLoop(LPVOID arg);
 static DWORD divertClockLoop(LPVOID arg);
 
 // not to put these in common.h since modules shouldn't see these
-extern PacketNode *const head;
-extern PacketNode *const tail;
+extern PacketNode* const head;
+extern PacketNode* const tail;
 
 #ifdef _DEBUG
 PWINDIVERT_IPHDR dbg_ip_header;
@@ -29,8 +29,8 @@ PWINDIVERT_UDPHDR dbg_udp_header;
 PWINDIVERT_ICMPHDR dbg_icmp_header;
 PWINDIVERT_ICMPV6HDR dbg_icmpv6_header;
 UINT payload_len;
-void dumpPacket(char *buf, int len, PWINDIVERT_ADDRESS paddr) {
-    char *protocol;
+void dumpPacket(char* buf, int len, PWINDIVERT_ADDRESS paddr) {
+    char* protocol;
     UINT16 srcPort = 0, dstPort = 0;
 
     WinDivertHelperParsePacket(buf, len, &dbg_ip_header, &dbg_ipv6_header, NULL,
@@ -53,15 +53,15 @@ void dumpPacket(char *buf, int len, PWINDIVERT_ADDRESS paddr) {
     }
 
     if (dbg_ip_header != NULL) {
-        UINT8 *src_addr = (UINT8 *)&dbg_ip_header->SrcAddr;
-        UINT8 *dst_addr = (UINT8 *)&dbg_ip_header->DstAddr;
+        UINT8* src_addr = (UINT8*)&dbg_ip_header->SrcAddr;
+        UINT8* dst_addr = (UINT8*)&dbg_ip_header->DstAddr;
         LOG("%s.%s: %u.%u.%u.%u:%d->%u.%u.%u.%u:%d", protocol,
             paddr->Outbound ? "OUT " : "IN  ", src_addr[0], src_addr[1],
             src_addr[2], src_addr[3], srcPort, dst_addr[0], dst_addr[1],
             dst_addr[2], dst_addr[3], dstPort);
     } else if (dbg_ipv6_header != NULL) {
-        UINT16 *src_addr6 = (UINT16 *)&dbg_ipv6_header->SrcAddr;
-        UINT16 *dst_addr6 = (UINT16 *)&dbg_ipv6_header->DstAddr;
+        UINT16* src_addr6 = (UINT16*)&dbg_ipv6_header->SrcAddr;
+        UINT16* dst_addr6 = (UINT16*)&dbg_ipv6_header->DstAddr;
         LOG("%s.%s: %x:%x:%x:%x:%x:%x:%x:%x:%d->%x:%x:%x:%x:%x:%x:%x:%x:%d",
             protocol, paddr->Outbound ? "OUT " : "IN  ", src_addr6[0],
             src_addr6[1], src_addr6[2], src_addr6[3], src_addr6[4],
@@ -74,7 +74,7 @@ void dumpPacket(char *buf, int len, PWINDIVERT_ADDRESS paddr) {
 #define dumpPacket(x, y, z)
 #endif
 
-int divertStart(const char *filter, char buf[]) {
+int divertStart(const char* filter, char buf[]) {
     int ix;
 
     divertHandle =
@@ -139,11 +139,11 @@ static int sendAllListPackets() {
     // send packet from tail to head and remove sent ones
     int sendCount = 0;
     UINT sendLen;
-    PacketNode *pnode;
+    PacketNode* pnode;
 #ifdef _DEBUG
     // check the list is good
     // might go into dead loop but it's better for debugging
-    PacketNode *p = head;
+    PacketNode* p = head;
     do {
         p = p->next;
     } while (p->next);
@@ -223,7 +223,7 @@ static void divertConsumeStep() {
     int ix, cnt;
     // use lastEnabled to keep track of module starting up and closing down
     for (ix = 0; ix < MODULE_CNT; ++ix) {
-        Module *module = modules[ix];
+        Module* module = modules[ix];
         if (*(module->enabledFlag)) {
             if (!module->lastEnabled) {
                 module->startUp();
@@ -310,7 +310,7 @@ static DWORD divertClockLoop(LPVOID arg) {
                 LOG("Read stopLooping, stopping...");
                 // clean up by closing all modules
                 for (ix = 0; ix < MODULE_CNT; ++ix) {
-                    Module *module = modules[ix];
+                    Module* module = modules[ix];
                     if (*(module->enabledFlag)) {
                         module->closeDown(head, tail);
                     }
@@ -342,7 +342,7 @@ static DWORD divertReadLoop(LPVOID arg) {
     char packetBuf[MAX_PACKETSIZE];
     WINDIVERT_ADDRESS addrBuf;
     UINT readLen;
-    PacketNode *pnode;
+    PacketNode* pnode;
     DWORD waitResult;
 
     UNREFERENCED_PARAMETER(arg);

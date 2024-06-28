@@ -12,8 +12,8 @@ static volatile short tamperEnabled = 0, tamperInbound = 1, tamperOutbound = 1,
                       chance = 1000, // [0 - 10000]
     doChecksum = 1;                  // recompute checksum after after tampering
 
-static Ihandle *tamperSetupUI() {
-    Ihandle *dupControlsBox =
+static Ihandle* tamperSetupUI() {
+    Ihandle* dupControlsBox =
         IupHbox(checksumCheckbox = IupToggle("Redo Checksum", NULL),
                 inboundCheckbox = IupToggle("Inbound", NULL),
                 outboundCheckbox = IupToggle("Outbound", NULL),
@@ -22,14 +22,14 @@ static Ihandle *tamperSetupUI() {
     IupSetAttribute(chanceInput, "VISIBLECOLUMNS", "4");
     IupSetAttribute(chanceInput, "VALUE", "10.0");
     IupSetCallback(chanceInput, "VALUECHANGED_CB", uiSyncChance);
-    IupSetAttribute(chanceInput, SYNCED_VALUE, (char *)&chance);
+    IupSetAttribute(chanceInput, SYNCED_VALUE, (char*)&chance);
     IupSetCallback(inboundCheckbox, "ACTION", (Icallback)uiSyncToggle);
-    IupSetAttribute(inboundCheckbox, SYNCED_VALUE, (char *)&tamperInbound);
+    IupSetAttribute(inboundCheckbox, SYNCED_VALUE, (char*)&tamperInbound);
     IupSetCallback(outboundCheckbox, "ACTION", (Icallback)uiSyncToggle);
-    IupSetAttribute(outboundCheckbox, SYNCED_VALUE, (char *)&tamperOutbound);
+    IupSetAttribute(outboundCheckbox, SYNCED_VALUE, (char*)&tamperOutbound);
     // sync doChecksum
     IupSetCallback(checksumCheckbox, "ACTION", (Icallback)uiSyncToggle);
-    IupSetAttribute(checksumCheckbox, SYNCED_VALUE, (char *)&doChecksum);
+    IupSetAttribute(checksumCheckbox, SYNCED_VALUE, (char*)&doChecksum);
 
     // enable by default to avoid confusing
     IupSetAttribute(inboundCheckbox, "VALUE", "ON");
@@ -60,30 +60,30 @@ static void tamperStartup() {
     patIx = 0;
 }
 
-static void tamperCloseDown(PacketNode *head, PacketNode *tail) {
+static void tamperCloseDown(PacketNode* head, PacketNode* tail) {
     UNREFERENCED_PARAMETER(head);
     UNREFERENCED_PARAMETER(tail);
     LOG("tamper disabled");
 }
 
-static INLINE_FUNCTION void tamper_buf(char *buf, UINT len) {
+static INLINE_FUNCTION void tamper_buf(char* buf, UINT len) {
     UINT ix;
     for (ix = 0; ix < len; ++ix) {
         buf[ix] ^= patterns[patIx++ & 0x7];
     }
 }
 
-static short tamperProcess(PacketNode *head, PacketNode *tail) {
+static short tamperProcess(PacketNode* head, PacketNode* tail) {
     short tampered = FALSE;
-    PacketNode *pac = head->next;
+    PacketNode* pac = head->next;
     while (pac != tail) {
         if (checkDirection(pac->addr.Outbound, tamperInbound, tamperOutbound) &&
             calcChance(chance)) {
-            char *data = NULL;
+            char* data = NULL;
             UINT dataLen = 0;
             if (WinDivertHelperParsePacket(
                     pac->packet, pac->packetLen, NULL, NULL, NULL, NULL, NULL,
-                    NULL, NULL, (PVOID *)&data, &dataLen, NULL, NULL) &&
+                    NULL, NULL, (PVOID*)&data, &dataLen, NULL, NULL) &&
                 data != NULL && dataLen != 0) {
                 // try to tamper the central part of the packet,
                 // since common packets put their checksum at head or tail
@@ -116,7 +116,7 @@ static short tamperProcess(PacketNode *head, PacketNode *tail) {
     return tampered;
 }
 
-static int tamper_enable(lua_State *L) {
+static int tamper_enable(lua_State* L) {
     int type = lua_gettop(L) > 0 ? lua_type(L, -1) : LUA_TNIL;
     switch (type) {
     case LUA_TBOOLEAN:
@@ -140,12 +140,12 @@ static int tamper_enable(lua_State *L) {
     return 0;
 }
 
-static void push_lua_functions(lua_State *L) {
+static void push_lua_functions(lua_State* L) {
     lua_pushcfunction(L, tamper_enable);
     lua_setfield(L, -2, "enable");
 }
 
-Module tamperModule = {"Tamper", NAME, (short *)&tamperEnabled, tamperSetupUI,
+Module tamperModule = {"Tamper", NAME, (short*)&tamperEnabled, tamperSetupUI,
                        tamperStartup, tamperCloseDown, tamperProcess,
                        // runtime fields
                        0, 0, NULL, push_lua_functions};

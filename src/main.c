@@ -7,7 +7,7 @@
 #include <time.h>
 
 // ! the order decides which module get processed first
-Module *modules[MODULE_CNT] = {
+Module* modules[MODULE_CNT] = {
     &lagModule, &dropModule,   &throttleModule, &dupModule,
     &oodModule, &tamperModule, &resetModule,    &bandwidthModule,
 };
@@ -16,31 +16,31 @@ volatile short sendState = SEND_STATUS_NONE;
 
 // global iup handlers
 static Ihandle *dialog, *topFrame, *bottomFrame;
-static Ihandle *statusLabel;
+static Ihandle* statusLabel;
 static Ihandle *filterText, *filterButton;
-Ihandle *filterSelectList;
+Ihandle* filterSelectList;
 // timer to update icons
-static Ihandle *stateIcon;
-static Ihandle *timer;
-static Ihandle *timeout = NULL;
+static Ihandle* stateIcon;
+static Ihandle* timer;
+static Ihandle* timeout = NULL;
 
-void showStatus(const char *line);
-static int uiOnDialogShow(Ihandle *ih, int state);
-static int uiStopCb(Ihandle *ih);
-static int uiStartCb(Ihandle *ih);
-static int uiTimerCb(Ihandle *ih);
-static int uiTimeoutCb(Ihandle *ih);
-static int uiListSelectCb(Ihandle *ih, char *text, int item, int state);
-static int uiFilterTextCb(Ihandle *ih);
-static void uiSetupModule(Module *module, Ihandle *parent);
+void showStatus(const char* line);
+static int uiOnDialogShow(Ihandle* ih, int state);
+static int uiStopCb(Ihandle* ih);
+static int uiStartCb(Ihandle* ih);
+static int uiTimerCb(Ihandle* ih);
+static int uiTimeoutCb(Ihandle* ih);
+static int uiListSelectCb(Ihandle* ih, char* text, int item, int state);
+static int uiFilterTextCb(Ihandle* ih);
+static void uiSetupModule(Module* module, Ihandle* parent);
 
 // serializing config files using a stupid custom format
 #define CONFIG_FILE "config.txt"
 #define CONFIG_MAX_RECORDS 64
 #define CONFIG_BUF_SIZE 4096
 typedef struct {
-    char *filterName;
-    char *filterValue;
+    char* filterName;
+    char* filterValue;
 } filterRecord;
 UINT filtersSize;
 filterRecord filters[CONFIG_MAX_RECORDS] = {0};
@@ -51,8 +51,8 @@ BOOL parameterized =
 // loading up filters and fill in
 void loadConfig() {
     char path[MSG_BUFSIZE];
-    char *p;
-    FILE *f;
+    char* p;
+    FILE* f;
     GetModuleFileName(NULL, path, MSG_BUFSIZE);
     LOG("Executable path: %s", path);
     p = strrchr(path, '\\');
@@ -126,11 +126,11 @@ void loadConfig() {
     }
 }
 
-void init(int argc, char *argv[]) {
+void init(int argc, char* argv[]) {
     UINT ix;
     Ihandle *topVbox, *bottomVbox, *dialogVBox, *controlHbox;
     Ihandle *noneIcon, *doingIcon, *errorIcon;
-    char *arg_value = NULL;
+    char* arg_value = NULL;
 
     // fill in config
     loadConfig();
@@ -281,7 +281,7 @@ void cleanup() {
 }
 
 // ui logics
-void showStatus(const char *line) {
+void showStatus(const char* line) {
     IupStoreAttribute(statusLabel, "TITLE", line);
 }
 
@@ -319,7 +319,7 @@ static BOOL checkIsRunning() {
     return FALSE;
 }
 
-static int uiOnDialogShow(Ihandle *ih, int state) {
+static int uiOnDialogShow(Ihandle* ih, int state) {
     // only need to process on show
     HWND hWnd;
     BOOL exit;
@@ -362,7 +362,7 @@ static int uiOnDialogShow(Ihandle *ih, int state) {
     return exit ? IUP_CLOSE : IUP_DEFAULT;
 }
 
-static int uiStartCb(Ihandle *ih) {
+static int uiStartCb(Ihandle* ih) {
     char buf[MSG_BUFSIZE];
     UNREFERENCED_PARAMETER(ih);
     if (divertStart(IupGetAttribute(filterText, "VALUE"), buf) == 0) {
@@ -380,7 +380,7 @@ static int uiStartCb(Ihandle *ih) {
     return IUP_DEFAULT;
 }
 
-static int uiStopCb(Ihandle *ih) {
+static int uiStopCb(Ihandle* ih) {
     int ix;
     UNREFERENCED_PARAMETER(ih);
 
@@ -408,9 +408,9 @@ static int uiStopCb(Ihandle *ih) {
     return IUP_DEFAULT;
 }
 
-static int uiToggleControls(Ihandle *ih, int state) {
-    Ihandle *controls = (Ihandle *)IupGetAttribute(ih, CONTROLS_HANDLE);
-    short *target = (short *)IupGetAttribute(ih, SYNCED_VALUE);
+static int uiToggleControls(Ihandle* ih, int state) {
+    Ihandle* controls = (Ihandle*)IupGetAttribute(ih, CONTROLS_HANDLE);
+    short* target = (short*)IupGetAttribute(ih, SYNCED_VALUE);
     int controlsActive = IupGetInt(controls, "ACTIVE");
     if (controlsActive && !state) {
         IupSetAttribute(controls, "ACTIVE", "NO");
@@ -423,7 +423,7 @@ static int uiToggleControls(Ihandle *ih, int state) {
     return IUP_DEFAULT;
 }
 
-static int uiTimerCb(Ihandle *ih) {
+static int uiTimerCb(Ihandle* ih) {
     int ix;
     UNREFERENCED_PARAMETER(ih);
     for (ix = 0; ix < MODULE_CNT; ++ix) {
@@ -453,12 +453,12 @@ static int uiTimerCb(Ihandle *ih) {
     return IUP_DEFAULT;
 }
 
-static int uiTimeoutCb(Ihandle *ih) {
+static int uiTimeoutCb(Ihandle* ih) {
     UNREFERENCED_PARAMETER(ih);
     return IUP_CLOSE;
 }
 
-static int uiListSelectCb(Ihandle *ih, char *text, int item, int state) {
+static int uiListSelectCb(Ihandle* ih, char* text, int item, int state) {
     UNREFERENCED_PARAMETER(text);
     UNREFERENCED_PARAMETER(ih);
     if (state == 1) {
@@ -467,14 +467,14 @@ static int uiListSelectCb(Ihandle *ih, char *text, int item, int state) {
     return IUP_DEFAULT;
 }
 
-static int uiFilterTextCb(Ihandle *ih) {
+static int uiFilterTextCb(Ihandle* ih) {
     UNREFERENCED_PARAMETER(ih);
     // unselect list
     IupSetAttribute(filterSelectList, "VALUE", "0");
     return IUP_DEFAULT;
 }
 
-static void uiSetupModule(Module *module, Ihandle *parent) {
+static void uiSetupModule(Module* module, Ihandle* parent) {
     Ihandle *groupBox, *toggle, *controls, *icon;
     groupBox = IupHbox(icon = IupLabel(NULL),
                        toggle = IupToggle(module->displayName, NULL), IupFill(),
@@ -486,8 +486,8 @@ static void uiSetupModule(Module *module, Ihandle *parent) {
 
     // set controls as attribute to toggle and enable toggle callback
     IupSetCallback(toggle, "ACTION", (Icallback)uiToggleControls);
-    IupSetAttribute(toggle, CONTROLS_HANDLE, (char *)controls);
-    IupSetAttribute(toggle, SYNCED_VALUE, (char *)module->enabledFlag);
+    IupSetAttribute(toggle, CONTROLS_HANDLE, (char*)controls);
+    IupSetAttribute(toggle, SYNCED_VALUE, (char*)module->enabledFlag);
     IupSetAttribute(controls, "ACTIVE", "NO"); // startup as inactive
     IupSetAttribute(controls, "NCGAP", "4");   // startup as inactive
 
@@ -502,7 +502,7 @@ static void uiSetupModule(Module *module, Ihandle *parent) {
     }
 }
 
-int main(int argc, char *argv[]) {
+int main(int argc, char* argv[]) {
     LOG("Is Run As Admin: %d", IsRunAsAdmin());
     LOG("Is Elevated: %d", IsElevated());
     init(argc, argv);
