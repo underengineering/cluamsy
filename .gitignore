@@ -1,6 +1,7 @@
 .cache/
 bin/
 build/
+build-release/
 tmp/
 etc/clumsy.aps
 *.swp

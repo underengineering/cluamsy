@@ -1,9 +1,9 @@
 #pragma once
-#include "iup.h"
-#include "lauxlib.h"
-#include "windivert.h"
-#include <assert.h>
-#include <stdio.h>
+
+#include <lua.hpp>
+#include <windivert.h>
+
+#include "packet.hpp"
 
 #define CLUMSY_VERSION "0.3"
 #define MSG_BUFSIZE 512
@@ -81,65 +81,6 @@
 // #define assert(x)
 #endif
 
-// package node
-typedef struct _NODE {
-    char* packet;
-    UINT packetLen;
-    WINDIVERT_ADDRESS addr;
-    DWORD timestamp; // ! timestamp isn't filled when creating node since it's
-                     // only needed for lag
-    struct _NODE *prev, *next;
-} PacketNode;
-
-void initPacketNodeList();
-PacketNode* createNode(char* buf, UINT len, WINDIVERT_ADDRESS* addr);
-void freeNode(PacketNode* node);
-PacketNode* popNode(PacketNode* node);
-PacketNode* insertBefore(PacketNode* node, PacketNode* target);
-PacketNode* insertAfter(PacketNode* node, PacketNode* target);
-PacketNode* appendNode(PacketNode* node);
-short isListEmpty();
-
-// shared ui handlers
-int uiSyncChance(Ihandle* ih);
-int uiSyncToggle(Ihandle* ih, int state);
-int uiSyncInteger(Ihandle* ih);
-int uiSyncFixed(Ihandle* ih);
-int uiSyncInt32(Ihandle* ih);
-
-// module
-typedef struct {
-    /*
-     * Static module data
-     */
-    const char* displayName; // display name shown in ui
-    const char* shortName;   // single word name
-    short* enabledFlag;      // volatile short flag to determine enabled or not
-    Ihandle* (*setupUIFunc)(); // return hbox as controls group
-    void (*startUp)();         // called when starting up the module
-    void (*closeDown)(PacketNode* head,
-                      PacketNode* tail); // called when starting up the module
-    short (*process)(PacketNode* head, PacketNode* tail);
-    /*
-     * Flags used during program excution. Need to be re initialized on each run
-     */
-    short lastEnabled; // if it is enabled on last run
-    short
-        processTriggered; // whether this module has been triggered in last step
-    Ihandle* iconHandle;  // store the icon to be updated
-    void (*push_lua_functions)(lua_State* L);
-} Module;
-
-extern Module lagModule;
-extern Module dropModule;
-extern Module throttleModule;
-extern Module oodModule;
-extern Module dupModule;
-extern Module tamperModule;
-extern Module resetModule;
-extern Module bandwidthModule;
-extern Module* modules[MODULE_CNT]; // all modules in a list
-
 // lua
 extern lua_State* g_luaState;
 extern void lua_state_init(void);
@@ -163,7 +104,11 @@ void divertStop();
 #define STR_HELPER(x) #x
 #define STR(x) STR_HELPER(x)
 
-short calcChance(short chance);
+inline short calcChance(short chance) {
+    // notice that here we made a copy of chance, so even though it's volatile
+    // it is still ok
+    return (chance == 10000) || ((rand() % 10000) < chance);
+}
 
 // inline helper for inbound outbound check
 static INLINE_FUNCTION BOOL checkDirection(BOOL outboundPacket,
@@ -182,11 +127,3 @@ void endTimePeriod();
 BOOL IsElevated();
 BOOL IsRunAsAdmin();
 BOOL tryElevate(HWND hWnd, BOOL silent);
-
-// icons
-extern const unsigned char icon8x8[8 * 8];
-
-// parameterized
-extern BOOL parameterized;
-void setFromParameter(Ihandle* ih, const char* field, const char* key);
-BOOL parseArgs(int argc, char* argv[]);

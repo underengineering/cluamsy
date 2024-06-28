@@ -1,7 +1,12 @@
-#include "common.h"
-#include "windivert.h"
 #include <memory.h>
 #include <stdlib.h>
+#include <windivert.h>
+
+#include "common.hpp"
+#include "divert.hpp"
+#include "module.hpp"
+#include "packet.hpp"
+
 #define DIVERT_PRIORITY 0
 #define MAX_PACKETSIZE 0xFFFF
 #define READ_TIME_PER_STEP 3
@@ -10,16 +15,14 @@
 #define QUEUE_LEN 2 << 10
 #define QUEUE_TIME 2 << 9
 
+volatile short sendState;
+
 static HANDLE divertHandle;
 static volatile short stopLooping;
 static HANDLE loopThread, clockThread, mutex;
 
 static DWORD divertReadLoop(LPVOID arg);
 static DWORD divertClockLoop(LPVOID arg);
-
-// not to put these in common.h since modules shouldn't see these
-extern PacketNode* const head;
-extern PacketNode* const tail;
 
 #ifdef _DEBUG
 PWINDIVERT_IPHDR dbg_ip_header;
@@ -29,14 +32,14 @@ PWINDIVERT_UDPHDR dbg_udp_header;
 PWINDIVERT_ICMPHDR dbg_icmp_header;
 PWINDIVERT_ICMPV6HDR dbg_icmpv6_header;
 UINT payload_len;
-void dumpPacket(char* buf, int len, PWINDIVERT_ADDRESS paddr) {
-    char* protocol;
+void dumpPacket(std::vector<char>& packet, PWINDIVERT_ADDRESS paddr) {
+    const char* protocol;
     UINT16 srcPort = 0, dstPort = 0;
 
-    WinDivertHelperParsePacket(buf, len, &dbg_ip_header, &dbg_ipv6_header, NULL,
-                               &dbg_icmp_header, &dbg_icmpv6_header,
-                               &dbg_tcp_header, &dbg_udp_header, NULL,
-                               &payload_len, NULL, NULL);
+    WinDivertHelperParsePacket(packet.data(), packet.size(), &dbg_ip_header,
+                               &dbg_ipv6_header, NULL, &dbg_icmp_header,
+                               &dbg_icmpv6_header, &dbg_tcp_header,
+                               &dbg_udp_header, NULL, &payload_len, NULL, NULL);
     // need to cast byte order on port numbers
     if (dbg_tcp_header != NULL) {
         protocol = "TCP ";
@@ -99,12 +102,9 @@ int divertStart(const char* filter, char buf[]) {
     LOG("WinDivert internal queue Len: %d, queue time: %d", QUEUE_LEN,
         QUEUE_TIME);
 
-    // init package link list
-    initPacketNodeList();
-
     // reset module
-    for (ix = 0; ix < MODULE_CNT; ++ix) {
-        modules[ix]->lastEnabled = 0;
+    for (auto& module : g_modules) {
+        module->disable();
     }
 
     // kick off the loop
@@ -139,40 +139,30 @@ static int sendAllListPackets() {
     // send packet from tail to head and remove sent ones
     int sendCount = 0;
     UINT sendLen;
-    PacketNode* pnode;
-#ifdef _DEBUG
-    // check the list is good
-    // might go into dead loop but it's better for debugging
-    PacketNode* p = head;
-    do {
-        p = p->next;
-    } while (p->next);
-    assert(p == tail);
-#endif
 
-    while (!isListEmpty()) {
-        pnode = popNode(tail->prev);
+    while (!g_packets.empty()) {
+        auto* pnode = &g_packets.front();
+        printf("pnode %p %zu\n", pnode, g_packets.size());
         sendLen = 0;
-        assert(pnode != head);
         // FIXME inbound injection on any kind of packet is failing with a very
         // high percentage
         //       need to contact windivert auther and wait for next release
-        if (!WinDivertSend(divertHandle, pnode->packet, pnode->packetLen,
-                           &sendLen, &(pnode->addr))) {
+        if (!WinDivertSend(divertHandle, pnode->packet.data(),
+                           pnode->packet.size(), &sendLen, &(pnode->addr))) {
             PWINDIVERT_ICMPHDR icmp_header;
             PWINDIVERT_ICMPV6HDR icmpv6_header;
             PWINDIVERT_IPHDR ip_header;
             PWINDIVERT_IPV6HDR ipv6_header;
             LOG("Failed to send a packet. (%lu)", GetLastError());
-            dumpPacket(pnode->packet, pnode->packetLen, &(pnode->addr));
+            dumpPacket(pnode->packet, &(pnode->addr));
             // as noted in windivert help, reinject inbound icmp packets some
             // times would fail workaround this by resend them as outbound
             // TODO not sure is this even working as can't find a way to test
             //      need to document about this
-            WinDivertHelperParsePacket(pnode->packet, pnode->packetLen,
-                                       &ip_header, &ipv6_header, NULL,
-                                       &icmp_header, &icmpv6_header, NULL, NULL,
-                                       NULL, NULL, NULL, NULL);
+            WinDivertHelperParsePacket(
+                pnode->packet.data(), pnode->packet.size(), &ip_header,
+                &ipv6_header, NULL, &icmp_header, &icmpv6_header, NULL, NULL,
+                NULL, NULL, NULL, NULL);
             if ((icmp_header || icmpv6_header) && !pnode->addr.Outbound) {
                 BOOL resent;
                 pnode->addr.Outbound = TRUE;
@@ -187,9 +177,9 @@ static int sendAllListPackets() {
                            sizeof(tmpArr));
                     memcpy(ipv6_header->DstAddr, tmpArr, sizeof(tmpArr));
                 }
-                resent =
-                    WinDivertSend(divertHandle, pnode->packet, pnode->packetLen,
-                                  &sendLen, &(pnode->addr));
+                resent = WinDivertSend(divertHandle, pnode->packet.data(),
+                                       pnode->packet.size(), &sendLen,
+                                       &(pnode->addr));
                 LOG("Resend failed inbound ICMP packets as outbound: %s",
                     resent ? "SUCCESS" : "FAIL");
                 InterlockedExchange16(&sendState, SEND_STATUS_SEND);
@@ -197,7 +187,7 @@ static int sendAllListPackets() {
                 InterlockedExchange16(&sendState, SEND_STATUS_FAIL);
             }
         } else {
-            if (sendLen < pnode->packetLen) {
+            if (sendLen < pnode->packet.size()) {
                 // TODO don't know how this can happen, or it needs to be resent
                 // like good old UDP packet
                 LOG("Internal Error: DivertSend truncated send packet.");
@@ -207,10 +197,13 @@ static int sendAllListPackets() {
             }
         }
 
-        freeNode(pnode);
+        printf("send ok now %zu\n", g_packets.size());
+        g_packets.pop_back();
         ++sendCount;
     }
-    assert(isListEmpty()); // all packets should be sent by now
+
+    // All packets should be sent by now
+    assert(g_packets.empty());
 
     return sendCount;
 }
@@ -222,23 +215,11 @@ static void divertConsumeStep() {
 #endif
     int ix, cnt;
     // use lastEnabled to keep track of module starting up and closing down
-    for (ix = 0; ix < MODULE_CNT; ++ix) {
-        Module* module = modules[ix];
-        if (*(module->enabledFlag)) {
-            if (!module->lastEnabled) {
-                module->startUp();
-                module->lastEnabled = 1;
-            }
-            if (module->process(head, tail)) {
-                InterlockedIncrement16(&(module->processTriggered));
-            }
-        } else {
-            if (module->lastEnabled) {
-                module->closeDown(head, tail);
-                module->lastEnabled = 0;
-            }
-        }
+    for (auto& module : g_modules) {
+        if (module->m_enabled)
+            module->process();
     }
+
     cnt = sendAllListPackets();
 #ifdef _DEBUG
     dt = GetTickCount() - startTick;
@@ -309,11 +290,9 @@ static DWORD divertClockLoop(LPVOID arg) {
                  * ************************/
                 LOG("Read stopLooping, stopping...");
                 // clean up by closing all modules
-                for (ix = 0; ix < MODULE_CNT; ++ix) {
-                    Module* module = modules[ix];
-                    if (*(module->enabledFlag)) {
-                        module->closeDown(head, tail);
-                    }
+                for (auto& module : g_modules) {
+                    if (module->m_enabled)
+                        module->disable();
                 }
                 LOG("Send all packets upon closing");
                 lastSendCount = sendAllListPackets();
@@ -342,15 +321,14 @@ static DWORD divertReadLoop(LPVOID arg) {
     char packetBuf[MAX_PACKETSIZE];
     WINDIVERT_ADDRESS addrBuf;
     UINT readLen;
-    PacketNode* pnode;
     DWORD waitResult;
 
     UNREFERENCED_PARAMETER(arg);
 
     for (;;) {
         // each step must fully consume the list
-        assert(isListEmpty()); // FIXME has failed this assert before. don't
-                               // know why
+        assert(g_packets.empty()); // FIXME has failed this assert before.
+                                   // don't know why
         if (!WinDivertRecv(divertHandle, packetBuf, MAX_PACKETSIZE, &readLen,
                            &addrBuf)) {
             DWORD lastError = GetLastError();
@@ -387,8 +365,12 @@ static DWORD divertReadLoop(LPVOID arg) {
                 return 0;
             }
             // create node and put it into the list
-            pnode = createNode(packetBuf, readLen, &addrBuf);
-            appendNode(pnode);
+            printf("inserting %zu\n", g_packets.size());
+            g_packets.emplace_front(PacketNode{
+                .packet = std::vector<char>(packetBuf, packetBuf + readLen),
+                .addr = addrBuf,
+                .timestamp = 0, // TODO: wtf
+            });
             divertConsumeStep();
             /***************** leave critical region ************************/
             if (!ReleaseMutex(mutex)) {
