@@ -8,6 +8,7 @@
 bool DropModule::draw() {
     bool dirty = false;
 
+    ImGui::PushID(m_short_name);
     ImGui::BeginGroup();
 
     ImGui::PushStyleColor(ImGuiCol_Text, {m_indicator, 0.f, 0.f, 1.f});
@@ -29,11 +30,11 @@ bool DropModule::draw() {
 
     ImGui::SameLine();
 
-    dirty |= ImGui::Checkbox("Inbound", &m_drop_inbound);
+    dirty |= ImGui::Checkbox("Inbound", &m_inbound);
 
     ImGui::SameLine();
 
-    dirty |= ImGui::Checkbox("Outbound", &m_drop_outbound);
+    dirty |= ImGui::Checkbox("Outbound", &m_outbound);
 
     ImGui::SameLine();
 
@@ -43,6 +44,7 @@ bool DropModule::draw() {
     }
 
     ImGui::EndGroup();
+    ImGui::PopID();
 
     return dirty;
 }
@@ -52,8 +54,7 @@ void DropModule::process() {
     int dropped = 0;
     for (auto it = g_packets.begin(); it != g_packets.end();) {
         auto& packet = *it;
-        if (checkDirection(packet.addr.Outbound, m_drop_inbound,
-                           m_drop_outbound) &&
+        if (checkDirection(packet.addr.Outbound, m_inbound, m_outbound) &&
             calcChance(m_chance)) {
             LOG("Dropped with chance %.1f%%, direction %s", m_chance,
                 packet.addr.Outbound ? "OUTBOUND" : "INBOUND");

@@ -15,9 +15,9 @@ public:
     // Static module data
     const char* m_display_name; // display name shown in ui
     const char* m_short_name;   // single word name
-    bool m_enabled;
-    float m_indicator;
-    bool m_dirty;
+    bool m_enabled = false;
+    float m_indicator = 0.f;
+    bool m_dirty = false;
 };
 
-extern std::array<std::shared_ptr<Module>, 1> g_modules;
+extern std::array<std::shared_ptr<Module>, 2> g_modules;

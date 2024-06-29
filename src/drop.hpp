@@ -16,7 +16,7 @@ public:
     virtual void disable();
 
 public:
-    bool m_drop_inbound = true;
-    bool m_drop_outbound = true;
+    bool m_inbound = true;
+    bool m_outbound = true;
     float m_chance = 10.f;
 };

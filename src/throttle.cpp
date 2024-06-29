@@ -1,194 +1,104 @@
-// throttling packets
-#include "common.h"
-#include "iup.h"
-#include <stdbool.h>
-#define NAME "throttle"
-#define TIME_MIN "0"
-#define TIME_MAX "1000"
-#define TIME_DEFAULT 30
-// threshold for how many packet to throttle at most
-#define KEEP_AT_MOST 1000
+#include <algorithm>
+#include <cassert>
+#include <chrono>
+#include <imgui.h>
 
-static Ihandle *inboundCheckbox, *outboundCheckbox, *chanceInput, *frameInput,
-    *dropThrottledCheckbox;
+#include "common.hpp"
+#include "throttle.hpp"
 
-static volatile short throttleEnabled = 0, throttleInbound = 1,
-                      throttleOutbound = 1,
-                      chance = 1000, // [0-10000]
-    // time frame in ms, when a throttle start the packets within the time
-    // will be queued and sent altogether when time is over
-    throttleFrame = TIME_DEFAULT, dropThrottled = 0;
+bool ThrottleModule::draw() {
+    bool dirty = false;
 
-static PacketNode throttleHeadNode = {0}, throttleTailNode = {0};
-static PacketNode *bufHead = &throttleHeadNode, *bufTail = &throttleTailNode;
-static int bufSize = 0;
-static DWORD throttleStartTick = 0;
+    ImGui::PushID(m_short_name);
+    ImGui::BeginGroup();
 
-static INLINE_FUNCTION short isBufEmpty() {
-    short ret = bufHead->next == bufTail;
-    if (ret)
-        assert(bufSize == 0);
-    return ret;
-}
+    ImGui::PushStyleColor(ImGuiCol_Text, {m_indicator, 0.f, 0.f, 1.f});
+    ImGui::Bullet();
+    ImGui::PopStyleColor();
 
-static Ihandle* throttleSetupUI() {
-    Ihandle* throttleControlsBox =
-        IupHbox(dropThrottledCheckbox = IupToggle("Drop Throttled", NULL),
-                IupLabel("Timeframe(ms):"), frameInput = IupText(NULL),
-                inboundCheckbox = IupToggle("Inbound", NULL),
-                outboundCheckbox = IupToggle("Outbound", NULL),
-                IupLabel("Chance(%):"), chanceInput = IupText(NULL), NULL);
+    ImGui::SameLine();
 
-    IupSetAttribute(chanceInput, "VISIBLECOLUMNS", "4");
-    IupSetAttribute(chanceInput, "VALUE", "10.0");
-    IupSetCallback(chanceInput, "VALUECHANGED_CB", uiSyncChance);
-    IupSetAttribute(chanceInput, SYNCED_VALUE, (char*)&chance);
-    IupSetCallback(inboundCheckbox, "ACTION", (Icallback)uiSyncToggle);
-    IupSetAttribute(inboundCheckbox, SYNCED_VALUE, (char*)&throttleInbound);
-    IupSetCallback(outboundCheckbox, "ACTION", (Icallback)uiSyncToggle);
-    IupSetAttribute(outboundCheckbox, SYNCED_VALUE, (char*)&throttleOutbound);
-    IupSetCallback(dropThrottledCheckbox, "ACTION", (Icallback)uiSyncToggle);
-    IupSetAttribute(dropThrottledCheckbox, SYNCED_VALUE, (char*)&dropThrottled);
+    ImGui::Text("%s", m_display_name);
 
-    // sync throttle packet number
-    IupSetAttribute(frameInput, "VISIBLECOLUMNS", "3");
-    IupSetAttribute(frameInput, "VALUE", STR(TIME_DEFAULT));
-    IupSetCallback(frameInput, "VALUECHANGED_CB", (Icallback)uiSyncInteger);
-    IupSetAttribute(frameInput, SYNCED_VALUE, (char*)&throttleFrame);
-    IupSetAttribute(frameInput, INTEGER_MAX, TIME_MAX);
-    IupSetAttribute(frameInput, INTEGER_MIN, TIME_MIN);
+    ImGui::SameLine();
 
-    // enable by default to avoid confusing
-    IupSetAttribute(inboundCheckbox, "VALUE", "ON");
-    IupSetAttribute(outboundCheckbox, "VALUE", "ON");
+    dirty |= ImGui::Checkbox("Enable", &m_enabled);
 
-    if (parameterized) {
-        setFromParameter(inboundCheckbox, "VALUE", NAME "-inbound");
-        setFromParameter(outboundCheckbox, "VALUE", NAME "-outbound");
-        setFromParameter(chanceInput, "VALUE", NAME "-chance");
-        setFromParameter(frameInput, "VALUE", NAME "-frame");
+    ImGui::SameLine();
+
+    dirty |= ImGui::Checkbox("Inbound", &m_inbound);
+
+    ImGui::SameLine();
+
+    dirty |= ImGui::Checkbox("Outbound", &m_outbound);
+
+    ImGui::SameLine();
+
+    int timeframe = static_cast<int>(m_timeframe_ms.count());
+    if (ImGui::InputInt("Timeframe", &timeframe)) {
+        timeframe = std::max(timeframe, 0);
+        m_timeframe_ms = std::chrono::milliseconds(timeframe);
+        dirty = true;
     }
 
-    return throttleControlsBox;
-}
+    ImGui::SameLine();
 
-static void throttleStartUp() {
-    if (bufHead->next == NULL && bufTail->next == NULL) {
-        bufHead->next = bufTail;
-        bufTail->prev = bufHead;
-        bufSize = 0;
-    } else {
-        assert(isBufEmpty());
+    if (ImGui::InputFloat("Chance", &m_chance)) {
+        m_chance = std::clamp(m_chance, 0.f, 100.f);
+        dirty = true;
     }
-    throttleStartTick = 0;
-    startTimePeriod();
+
+    ImGui::EndGroup();
+    ImGui::PopID();
+
+    return dirty;
 }
 
-static void clearBufPackets(PacketNode* tail) {
-    PacketNode* oldLast = tail->prev;
-    LOG("Throttled end, send all %d packets. Buffer at max: %s", bufSize,
-        bufSize == KEEP_AT_MOST ? "YES" : "NO");
-    while (!isBufEmpty()) {
-        insertAfter(popNode(bufTail->prev), oldLast);
-        --bufSize;
+void ThrottleModule::enable() {
+    assert(m_throttle_list.empty() && !m_throttling);
+}
+
+void ThrottleModule::disable() { flush(); }
+
+void ThrottleModule::flush() {
+    LOG("Sending all %zu packets", m_throttle_list.size());
+    if (m_drop_throttled)
+        m_throttle_list.clear();
+    else
+        g_packets.splice(g_packets.cend(), m_throttle_list);
+
+    m_throttling = false;
+    m_indicator = 0.f;
+    m_dirty = true;
+}
+
+void ThrottleModule::process() {
+    if (!m_throttling && calcChance(m_chance)) {
+        LOG("Start new throttling w/ chance %.1f, time frame: %lld", m_chance,
+            m_timeframe_ms.count());
+        m_throttling = true;
+        m_start_point = std::chrono::steady_clock::now();
+        m_indicator = 1.f;
+        m_dirty = true;
     }
-    throttleStartTick = 0;
-}
 
-static void dropBufPackets() {
-    LOG("Throttled end, drop all %d packets. Buffer at max: %s", bufSize,
-        bufSize == KEEP_AT_MOST ? "YES" : "NO");
-    while (!isBufEmpty()) {
-        freeNode(popNode(bufTail->prev));
-        --bufSize;
-    }
-    throttleStartTick = 0;
-}
-
-static void throttleCloseDown(PacketNode* head, PacketNode* tail) {
-    UNREFERENCED_PARAMETER(tail);
-    UNREFERENCED_PARAMETER(head);
-    clearBufPackets(tail);
-    endTimePeriod();
-}
-
-static short throttleProcess(PacketNode* head, PacketNode* tail) {
-    short throttled = FALSE;
-    UNREFERENCED_PARAMETER(head);
-    if (!throttleStartTick) {
-        if (!isListEmpty() && calcChance(chance)) {
-            LOG("Start new throttling w/ chance %.1f, time frame: %d",
-                chance / 10.0, throttleFrame);
-            throttleStartTick = timeGetTime();
-            throttled = TRUE;
-            goto THROTTLE_START; // need this goto since maybe we'll start and
-                                 // stop at this single call
-        }
-    } else {
-    THROTTLE_START:
-        // start a block for declaring local variables
-        {
-            // already throttling, keep filling up
-            PacketNode* pac = tail->prev;
-            DWORD currentTick = timeGetTime();
-            while (bufSize < KEEP_AT_MOST && pac != head) {
-                if (checkDirection(pac->addr.Outbound, throttleInbound,
-                                   throttleOutbound)) {
-                    insertAfter(popNode(pac), bufHead);
-                    ++bufSize;
-                    pac = tail->prev;
-                } else {
-                    pac = pac->prev;
-                }
-            }
-
-            // send all when throttled enough, including in current step
-            if (bufSize >= KEEP_AT_MOST || (currentTick - throttleStartTick >
-                                            (unsigned int)throttleFrame)) {
-                // drop throttled if dropThrottled is toggled
-                if (dropThrottled) {
-                    dropBufPackets();
-                } else {
-                    clearBufPackets(tail);
-                }
+    if (m_throttling) {
+        // Already throttling, keep filling up
+        const auto current_time_point = std::chrono::steady_clock::now();
+        for (auto it = g_packets.begin();
+             it != g_packets.end() && m_throttle_list.size() < MAX_PACKETS;) {
+            const auto itCopy = it++;
+            const auto& packet = *itCopy;
+            if (checkDirection(packet.addr.Outbound, m_inbound, m_outbound)) {
+                m_throttle_list.splice(m_throttle_list.cend(), g_packets,
+                                       itCopy);
             }
         }
+
+        // send all when throttled enough, including in current step
+        const auto delta_time = current_time_point - m_start_point;
+        if (m_throttle_list.size() >= MAX_PACKETS ||
+            delta_time > m_timeframe_ms)
+            flush();
     }
-
-    return throttled;
 }
-
-static int throttle_enable(lua_State* L) {
-    int type = lua_gettop(L) > 0 ? lua_type(L, -1) : LUA_TNIL;
-    switch (type) {
-    case LUA_TBOOLEAN:
-        bool enabled = lua_toboolean(L, -1);
-        throttleEnabled = enabled;
-        break;
-    case LUA_TNIL:
-        lua_pushboolean(L, throttleEnabled);
-        return 1;
-    default:
-        char message[256];
-        int message_length =
-            snprintf(message, sizeof(message),
-                     "Invalid argument #1 to throttle_enable: '%s'",
-                     lua_typename(L, type));
-        lua_pushlstring(L, message, message_length);
-        lua_error(L);
-        break;
-    }
-
-    return 0;
-}
-
-static void push_lua_functions(lua_State* L) {
-    lua_pushcfunction(L, throttle_enable);
-    lua_setfield(L, -2, "enable");
-}
-
-Module throttleModule = {"Throttle", NAME, (short*)&throttleEnabled,
-                         throttleSetupUI, throttleStartUp, throttleCloseDown,
-                         throttleProcess,
-                         // runtime fields
-                         0, 0, NULL, push_lua_functions};

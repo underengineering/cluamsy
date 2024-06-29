@@ -31,10 +31,10 @@ sources = files(
   # 'src/main.cpp',
   # 'src/ood.cpp',
   'src/packet.cpp',
-  'src/module.cpp'
+  'src/module.cpp',
   # 'src/reset.cpp',
   # 'src/tamper.cpp',
-  # 'src/throttle.cpp',
+  'src/throttle.cpp'
   # 'src/utils.cpp',
   # 'src/lua.cpp',
 )
@@ -45,6 +45,7 @@ exe = executable(
   dependencies : [
     imgui_dep, sdl2_dep, sdl2_main_dep, opengl_dep, windivert_dep, luajit_dep, ws32_dep, winmm_dep
   ],
-  override_options : ['cpp_std=c++20'])
+  override_options : ['cpp_std=c++20'],
+  cpp_args : ['-DNOMINMAX'])
 
 test('basic', exe)
