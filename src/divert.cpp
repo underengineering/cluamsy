@@ -140,32 +140,30 @@ static int sendAllListPackets() {
     int sendCount = 0;
     UINT sendLen;
 
-    while (!g_packets.empty()) {
-        auto* pnode = &g_packets.front();
-        printf("pnode %p %zu\n", pnode, g_packets.size());
+    for (auto& packet : g_packets) {
         sendLen = 0;
         // FIXME inbound injection on any kind of packet is failing with a very
         // high percentage
         //       need to contact windivert auther and wait for next release
-        if (!WinDivertSend(divertHandle, pnode->packet.data(),
-                           pnode->packet.size(), &sendLen, &(pnode->addr))) {
+        if (!WinDivertSend(divertHandle, packet.packet.data(),
+                           packet.packet.size(), &sendLen, &packet.addr)) {
             PWINDIVERT_ICMPHDR icmp_header;
             PWINDIVERT_ICMPV6HDR icmpv6_header;
             PWINDIVERT_IPHDR ip_header;
             PWINDIVERT_IPV6HDR ipv6_header;
             LOG("Failed to send a packet. (%lu)", GetLastError());
-            dumpPacket(pnode->packet, &(pnode->addr));
+            dumpPacket(packet.packet, &packet.addr);
             // as noted in windivert help, reinject inbound icmp packets some
             // times would fail workaround this by resend them as outbound
             // TODO not sure is this even working as can't find a way to test
             //      need to document about this
             WinDivertHelperParsePacket(
-                pnode->packet.data(), pnode->packet.size(), &ip_header,
+                packet.packet.data(), packet.packet.size(), &ip_header,
                 &ipv6_header, NULL, &icmp_header, &icmpv6_header, NULL, NULL,
                 NULL, NULL, NULL, NULL);
-            if ((icmp_header || icmpv6_header) && !pnode->addr.Outbound) {
+            if ((icmp_header || icmpv6_header) && !packet.addr.Outbound) {
                 BOOL resent;
-                pnode->addr.Outbound = TRUE;
+                packet.addr.Outbound = TRUE;
                 if (ip_header) {
                     UINT32 tmp = ip_header->SrcAddr;
                     ip_header->SrcAddr = ip_header->DstAddr;
@@ -177,9 +175,9 @@ static int sendAllListPackets() {
                            sizeof(tmpArr));
                     memcpy(ipv6_header->DstAddr, tmpArr, sizeof(tmpArr));
                 }
-                resent = WinDivertSend(divertHandle, pnode->packet.data(),
-                                       pnode->packet.size(), &sendLen,
-                                       &(pnode->addr));
+                resent = WinDivertSend(divertHandle, packet.packet.data(),
+                                       packet.packet.size(), &sendLen,
+                                       &(packet.addr));
                 LOG("Resend failed inbound ICMP packets as outbound: %s",
                     resent ? "SUCCESS" : "FAIL");
                 InterlockedExchange16(&sendState, SEND_STATUS_SEND);
@@ -187,7 +185,7 @@ static int sendAllListPackets() {
                 InterlockedExchange16(&sendState, SEND_STATUS_FAIL);
             }
         } else {
-            if (sendLen < pnode->packet.size()) {
+            if (sendLen < packet.packet.size()) {
                 // TODO don't know how this can happen, or it needs to be resent
                 // like good old UDP packet
                 LOG("Internal Error: DivertSend truncated send packet.");
@@ -197,13 +195,11 @@ static int sendAllListPackets() {
             }
         }
 
-        printf("send ok now %zu\n", g_packets.size());
-        g_packets.pop_back();
         ++sendCount;
     }
 
     // All packets should be sent by now
-    assert(g_packets.empty());
+    g_packets.clear();
 
     return sendCount;
 }
@@ -365,8 +361,7 @@ static DWORD divertReadLoop(LPVOID arg) {
                 return 0;
             }
             // create node and put it into the list
-            printf("inserting %zu\n", g_packets.size());
-            g_packets.emplace_front(PacketNode{
+            g_packets.emplace_back(PacketNode{
                 .packet = std::vector<char>(packetBuf, packetBuf + readLen),
                 .addr = addrBuf,
                 .timestamp = 0, // TODO: wtf
