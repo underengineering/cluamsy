@@ -267,6 +267,8 @@ public:
             m_dirty = true;
         }
         ImGui::SameLine();
+
+        ImGui::SetNextItemWidth(32.f * ImGui::GetFontSize());
         ImGui::InputText("Filter", &m_filter);
 
         for (const auto& module : g_modules) {

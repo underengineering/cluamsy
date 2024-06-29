@@ -38,6 +38,7 @@ bool DropModule::draw() {
 
     ImGui::SameLine();
 
+    ImGui::SetNextItemWidth(8.f * ImGui::GetFontSize());
     if (ImGui::InputFloat("Chance", &m_chance)) {
         m_chance = std::clamp(m_chance, 0.f, 100.f);
         dirty = true;

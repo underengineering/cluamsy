@@ -35,6 +35,7 @@ bool ThrottleModule::draw() {
     ImGui::SameLine();
 
     int timeframe = static_cast<int>(m_timeframe_ms.count());
+    ImGui::SetNextItemWidth(8.f * ImGui::GetFontSize());
     if (ImGui::InputInt("Timeframe", &timeframe)) {
         timeframe = std::max(timeframe, 0);
         m_timeframe_ms = std::chrono::milliseconds(timeframe);
@@ -43,6 +44,7 @@ bool ThrottleModule::draw() {
 
     ImGui::SameLine();
 
+    ImGui::SetNextItemWidth(8.f * ImGui::GetFontSize());
     if (ImGui::InputFloat("Chance", &m_chance)) {
         m_chance = std::clamp(m_chance, 0.f, 100.f);
         dirty = true;
