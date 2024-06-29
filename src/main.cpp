@@ -271,6 +271,11 @@ public:
         ImGui::SetNextItemWidth(32.f * ImGui::GetFontSize());
         ImGui::InputText("Filter", &m_filter);
 
+        if (!m_error_message.empty()) {
+            ImGui::TextColored({1.f, 0.f, 0.f, 1.f}, "Failed: %s",
+                               m_error_message.c_str());
+        }
+
         for (const auto& module : g_modules) {
             m_dirty |= module->draw();
         }
@@ -282,15 +287,14 @@ private:
     void toggle_win_divert() {
         bool was_enabled = m_enabled;
         if (!was_enabled) {
-            printf("start '%s'\n", m_filter.c_str());
-
             char buf[MSG_BUFSIZE];
             if (!divertStart(m_filter.c_str(), buf)) {
-                printf("FAIL: %s\n", buf);
+                m_error_message = buf;
+            } else {
+                m_error_message = "";
+                m_enabled = true;
             }
-            m_enabled = true;
         } else {
-            printf("stop\n");
             divertStop();
             m_enabled = false;
         }
@@ -298,6 +302,7 @@ private:
 
 private:
     std::string m_filter;
+    std::string m_error_message;
     // Is windivert enabled
     bool m_enabled = false;
     // Should rerender
