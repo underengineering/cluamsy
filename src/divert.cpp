@@ -22,6 +22,7 @@ std::optional<std::string> WinDivert::start(const std::string& filter) {
     if (m_divert_handle == INVALID_HANDLE_VALUE) {
         auto last_error = GetLastError();
         if (last_error == ERROR_INVALID_PARAMETER) {
+            m_divert_handle = nullptr;
             return "Failed to start filtering: filter syntax error";
         }
 
@@ -31,6 +32,8 @@ std::optional<std::string> WinDivert::start(const std::string& filter) {
                  "(code: %lu).\n"
                  "Make sure you run clumsy as Administrator.",
                  last_error);
+
+        m_divert_handle = nullptr;
         return error;
     }
 
