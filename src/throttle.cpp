@@ -57,10 +57,14 @@ bool ThrottleModule::draw() {
 }
 
 void ThrottleModule::enable() {
+    LOG("Enabling");
     assert(m_throttle_list.empty() && !m_throttling);
 }
 
-void ThrottleModule::disable() { flush(); }
+void ThrottleModule::disable() {
+    LOG("Disabling");
+    flush();
+}
 
 void ThrottleModule::flush() {
     LOG("Sending all %zu packets", m_throttle_list.size());

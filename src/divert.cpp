@@ -39,20 +39,23 @@ std::optional<std::string> WinDivert::start(const std::string& filter) {
     LOG("WinDivert internal queue Len: %llu, queue time: %llu", QUEUE_LEN,
         QUEUE_TIME);
 
-    // Startup modules
+    // Initialize modules
     for (auto& module : g_modules) {
         if (module->m_enabled)
             module->enable();
+
+        module->m_was_enabled = module->m_enabled;
     }
 
     LOG("Starting threads");
 
-    ThreadData thread_data = ThreadData{.divert_handle = m_divert_handle,
-                                        .packets_mutex = m_packets_mutex,
-                                        .packets_condvar = m_packets_condvar,
-                                        .stop = m_stop
-
+    ThreadData thread_data = {
+        .divert_handle = m_divert_handle,
+        .packets_mutex = m_packets_mutex,
+        .packets_condvar = m_packets_condvar,
+        .stop = m_stop,
     };
+
     m_read_thread = std::thread(read_thread, thread_data);
     m_write_thread = std::thread(write_thread, thread_data);
 
@@ -91,7 +94,7 @@ bool WinDivert::stop() {
 
     // Run post-disable module cleanups
     for (auto& module : g_modules) {
-        if (module->m_enabled)
+        if (module->m_enabled && module->m_was_enabled)
             module->disable();
     }
 
@@ -155,8 +158,18 @@ void WinDivert::write_thread(ThreadData thread_data) {
 
         // Run modules
         for (const auto& module : g_modules) {
-            if (module->m_enabled)
+            if (module->m_enabled) {
+                // Initialize it if it wasn't
+                if (!module->m_was_enabled) {
+                    module->enable();
+                    module->m_was_enabled = true;
+                }
+
                 module->process();
+            } else if (module->m_was_enabled) {
+                module->disable();
+                module->m_was_enabled = false;
+            }
         }
 
         // Send all packets

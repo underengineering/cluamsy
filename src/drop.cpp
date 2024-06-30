@@ -50,7 +50,9 @@ bool DropModule::draw() {
     return dirty;
 }
 
-void DropModule::enable() {}
+void DropModule::enable() { LOG("Enabling"); }
+void DropModule::disable() { LOG("Disabling"); }
+
 void DropModule::process() {
     int dropped = 0;
     for (auto it = g_packets.begin(); it != g_packets.end();) {
@@ -71,4 +73,3 @@ void DropModule::process() {
         m_dirty = true;
     }
 }
-void DropModule::disable() {}
