@@ -1,3 +1,5 @@
+#include <unordered_map>
+#include <unordered_set>
 #define WIN32_LEAN_AND_MEAN
 #include <Windows.h>
 
@@ -15,6 +17,7 @@
 #include <time.h>
 
 #include "common.hpp"
+#include "config.hpp"
 #include "divert.hpp"
 #include "module.hpp"
 
@@ -126,26 +129,31 @@ void loadConfig() {
 
 class Application {
 private:
-    Application() = default;
+    Application(SDL_Window* window, SDL_GLContext gl_context,
+                std::unordered_map<std::string, Config> config_entries)
+        : m_config_entries(config_entries), m_window(window),
+          m_gl_context(gl_context) {};
 
 public:
     Application(Application&& other) {
         m_window = other.m_window;
-        m_glContext = other.m_glContext;
+        m_gl_context = other.m_gl_context;
+        m_config_entries = std::move(other.m_config_entries);
 
         other.m_window = nullptr;
-        other.m_glContext = nullptr;
+        other.m_gl_context = nullptr;
     }
 
     ~Application() {
-        if (m_glContext)
-            SDL_GL_DeleteContext(m_glContext);
+        if (m_gl_context)
+            SDL_GL_DeleteContext(m_gl_context);
 
         if (m_window)
             SDL_DestroyWindow(m_window);
     }
 
-    static std::optional<Application> init() {
+    static std::optional<Application>
+    init(std::unordered_map<std::string, Config> config_entries) {
         SetProcessDPIAware();
 
         SDL_GL_SetAttribute(SDL_GL_CONTEXT_FLAGS, 0);
@@ -158,27 +166,27 @@ public:
         SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
         SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 8);
 
-        Application app;
-        if ((app.m_window =
-                 SDL_CreateWindow("cluamsy", SDL_WINDOWPOS_CENTERED,
-                                  SDL_WINDOWPOS_CENTERED, 1280, 720,
-                                  SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE |
-                                      SDL_WINDOW_ALLOW_HIGHDPI)) == nullptr) {
-            SDL_LogError(SDL_LOG_CATEGORY_APPLICATION,
-                         "Couldn't create window and renderer: %s",
-                         SDL_GetError());
+        const auto window =
+            SDL_CreateWindow("cluamsy", SDL_WINDOWPOS_CENTERED,
+                             SDL_WINDOWPOS_CENTERED, 1280, 720,
+                             SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE |
+                                 SDL_WINDOW_ALLOW_HIGHDPI);
+        if (window == nullptr) {
+            LOG("Couldn't create window and renderer: %s", SDL_GetError());
             return std::nullopt;
         }
 
-        if ((app.m_glContext = SDL_GL_CreateContext(app.m_window)) == nullptr) {
+        const auto gl_context = SDL_GL_CreateContext(window);
+        if (gl_context == nullptr) {
+            LOG("Failed to create OpenGL context");
             return std::nullopt;
         }
 
-        return app;
+        return Application(window, gl_context, config_entries);
     }
 
     void run() {
-        SDL_GL_MakeCurrent(m_window, m_glContext);
+        SDL_GL_MakeCurrent(m_window, m_gl_context);
         SDL_GL_SetSwapInterval(1);
 
         // Setup Dear ImGui context
@@ -193,7 +201,7 @@ public:
         ImGui::StyleColorsDark();
 
         // Setup Platform/Renderer backends
-        ImGui_ImplSDL2_InitForOpenGL(m_window, m_glContext);
+        ImGui_ImplSDL2_InitForOpenGL(m_window, m_gl_context);
         ImGui_ImplOpenGL3_Init();
 
         if (true) {
@@ -269,7 +277,27 @@ public:
         ImGui::SameLine();
 
         ImGui::SetNextItemWidth(32.f * ImGui::GetFontSize());
-        ImGui::InputText("Filter", &m_filter);
+        if (ImGui::InputText("Filter", &m_filter))
+            m_selected_config_entry = std::nullopt;
+
+        ImGui::SameLine();
+
+        ImGui::SetNextItemWidth(8.f * ImGui::GetFontSize());
+        if (ImGui::BeginCombo(
+                "Config", m_selected_config_entry.value_or("None").data())) {
+            for (const auto& [name, config] : m_config_entries) {
+                if (ImGui::Selectable(name.c_str(),
+                                      m_selected_config_entry == name)) {
+                    m_filter = m_config_entries[name].filter;
+                    m_selected_config_entry = name;
+
+                    m_dirty = true;
+                }
+            }
+            ImGui::EndCombo();
+
+            m_dirty = true;
+        }
 
         if (!m_error_message.empty()) {
             ImGui::TextColored({1.f, 0.f, 0.f, 1.f}, "Failed: %s",
@@ -301,6 +329,9 @@ private:
     }
 
 private:
+    std::unordered_map<std::string, Config> m_config_entries;
+    std::optional<std::string_view> m_selected_config_entry;
+
     std::string m_filter;
     std::string m_error_message;
     WinDivert m_win_divert;
@@ -311,7 +342,7 @@ private:
 
 private:
     SDL_Window* m_window = nullptr;
-    SDL_GLContext m_glContext = nullptr;
+    SDL_GLContext m_gl_context = nullptr;
 };
 
 static bool check_is_running() {
@@ -343,9 +374,6 @@ int main(int argc, char* argv[]) {
 
     printf("test\n");
 
-    // fill in config
-    // loadConfig();
-
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER | SDL_INIT_GAMECONTROLLER) <
         0) {
         SDL_LogError(SDL_LOG_CATEGORY_APPLICATION,
@@ -353,7 +381,10 @@ int main(int argc, char* argv[]) {
         exit(-1);
     }
 
-    auto app = Application::init();
+    auto config_entries = parse_config();
+
+    auto app = Application::init(
+        config_entries.value_or(std::unordered_map<std::string, Config>()));
     if (!app) {
         exit(-1);
     }

@@ -24,6 +24,7 @@ sources = files(
   'src/main.cpp',
   # 'src/bandwidth.cpp',
   'src/divert.cpp',
+  'src/config.cpp',
   'src/drop.cpp',
   # 'src/duplicate.cpp',
   # 'src/elevate.cpp',
