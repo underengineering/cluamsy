@@ -287,15 +287,15 @@ private:
     void toggle_win_divert() {
         bool was_enabled = m_enabled;
         if (!was_enabled) {
-            char buf[MSG_BUFSIZE];
-            if (!divertStart(m_filter.c_str(), buf)) {
-                m_error_message = buf;
+            const auto err = m_win_divert.start(m_filter);
+            if (err) {
+                m_error_message = *err;
             } else {
                 m_error_message = "";
                 m_enabled = true;
             }
         } else {
-            divertStop();
+            m_win_divert.stop();
             m_enabled = false;
         }
     }
@@ -303,6 +303,7 @@ private:
 private:
     std::string m_filter;
     std::string m_error_message;
+    WinDivert m_win_divert;
     // Is windivert enabled
     bool m_enabled = false;
     // Should rerender
