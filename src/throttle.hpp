@@ -29,14 +29,13 @@ public:
 private:
     void flush();
 
-public:
+private:
     bool m_inbound = true;
     bool m_outbound = true;
     float m_chance = 10.f;
     std::chrono::milliseconds m_timeframe_ms = 200ms;
     bool m_drop_throttled = false;
 
-private:
     bool m_throttling = false;
     std::chrono::steady_clock::time_point m_start_point;
     std::list<PacketNode> m_throttle_list;

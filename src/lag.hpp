@@ -23,12 +23,11 @@ public:
 
     virtual std::optional<std::chrono::milliseconds> process();
 
-public:
+private:
     bool m_inbound = true;
     bool m_outbound = true;
     float m_chance = 10.f;
 
-private:
     std::chrono::milliseconds m_lag_time = 200ms;
     std::list<PacketNode> m_lagged_packets;
 };
