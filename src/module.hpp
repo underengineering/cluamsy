@@ -29,4 +29,4 @@ private:
     bool m_was_enabled = false;
 };
 
-extern std::array<std::shared_ptr<Module>, 2> g_modules;
+extern std::array<std::shared_ptr<Module>, 3> g_modules;

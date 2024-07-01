@@ -1,5 +1,6 @@
 #pragma once
 
+#include <chrono>
 #include <list>
 #include <vector>
 
@@ -8,8 +9,7 @@
 struct PacketNode {
     std::vector<char> packet;
     WINDIVERT_ADDRESS addr;
-    DWORD timestamp; // ! timestamp isn't filled when creating node since it's
-                     // only needed for lag
+    std::chrono::steady_clock::time_point captured_at;
 };
 
 extern std::list<PacketNode> g_packets;

@@ -28,7 +28,7 @@ sources = files(
   'src/drop.cpp',
   # 'src/duplicate.cpp',
   # 'src/elevate.cpp',
-  # 'src/lag.cpp',
+  'src/lag.cpp',
   # 'src/main.cpp',
   # 'src/ood.cpp',
   'src/packet.cpp',

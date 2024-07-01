@@ -1,154 +1,118 @@
-// lagging packets
-#include "common.h"
-#include "iup.h"
-#include <stdbool.h>
-#define NAME "lag"
-#define LAG_MIN "0"
-#define LAG_MAX "15000"
-#define KEEP_AT_MOST 2000
-// send FLUSH_WHEN_FULL packets when buffer is full
-#define FLUSH_WHEN_FULL 800
-#define LAG_DEFAULT 50
+#include <algorithm>
+#include <cassert>
+#include <chrono>
+#include <imgui.h>
+#include <optional>
 
-// don't need a chance
-static Ihandle *inboundCheckbox, *outboundCheckbox, *timeInput;
+#include "common.hpp"
+#include "lag.hpp"
+#include "packet.hpp"
 
-static volatile short lagEnabled = 0, lagInbound = 1, lagOutbound = 1,
-                      lagTime = LAG_DEFAULT; // default for 50ms
+bool LagModule::draw() {
+    bool dirty = false;
 
-static PacketNode lagHeadNode = {0}, lagTailNode = {0};
-static PacketNode *bufHead = &lagHeadNode, *bufTail = &lagTailNode;
-static int bufSize = 0;
+    ImGui::PushID(m_short_name);
+    ImGui::BeginGroup();
 
-static INLINE_FUNCTION short isBufEmpty() {
-    short ret = bufHead->next == bufTail;
-    if (ret)
-        assert(bufSize == 0);
-    return ret;
-}
+    ImGui::PushStyleColor(ImGuiCol_Text, {m_indicator, 0.f, 0.f, 1.f});
+    ImGui::Bullet();
+    ImGui::PopStyleColor();
 
-static Ihandle* lagSetupUI() {
-    Ihandle* lagControlsBox =
-        IupHbox(inboundCheckbox = IupToggle("Inbound", NULL),
-                outboundCheckbox = IupToggle("Outbound", NULL),
-                IupLabel("Delay(ms):"), timeInput = IupText(NULL), NULL);
-
-    IupSetAttribute(timeInput, "VISIBLECOLUMNS", "4");
-    IupSetAttribute(timeInput, "VALUE", STR(LAG_DEFAULT));
-    IupSetCallback(timeInput, "VALUECHANGED_CB", uiSyncInteger);
-    IupSetAttribute(timeInput, SYNCED_VALUE, (char*)&lagTime);
-    IupSetAttribute(timeInput, INTEGER_MAX, LAG_MAX);
-    IupSetAttribute(timeInput, INTEGER_MIN, LAG_MIN);
-    IupSetCallback(inboundCheckbox, "ACTION", (Icallback)uiSyncToggle);
-    IupSetAttribute(inboundCheckbox, SYNCED_VALUE, (char*)&lagInbound);
-    IupSetCallback(outboundCheckbox, "ACTION", (Icallback)uiSyncToggle);
-    IupSetAttribute(outboundCheckbox, SYNCED_VALUE, (char*)&lagOutbound);
-
-    // enable by default to avoid confusing
-    IupSetAttribute(inboundCheckbox, "VALUE", "ON");
-    IupSetAttribute(outboundCheckbox, "VALUE", "ON");
-
-    if (parameterized) {
-        setFromParameter(inboundCheckbox, "VALUE", NAME "-inbound");
-        setFromParameter(outboundCheckbox, "VALUE", NAME "-outbound");
-        setFromParameter(timeInput, "VALUE", NAME "-time");
+    if (m_indicator > 0.f) {
+        m_indicator -= ImGui::GetIO().DeltaTime * 10.f;
+        dirty = true;
     }
 
-    return lagControlsBox;
-}
+    ImGui::SameLine();
 
-static void lagStartUp() {
-    if (bufHead->next == NULL && bufTail->next == NULL) {
-        bufHead->next = bufTail;
-        bufTail->prev = bufHead;
-        bufSize = 0;
-    } else {
-        assert(isBufEmpty());
+    ImGui::Text("%s", m_display_name);
+
+    ImGui::SameLine();
+
+    dirty |= ImGui::Checkbox("Enable", &m_enabled);
+
+    ImGui::SameLine();
+
+    dirty |= ImGui::Checkbox("Inbound", &m_inbound);
+
+    ImGui::SameLine();
+
+    dirty |= ImGui::Checkbox("Outbound", &m_outbound);
+
+    ImGui::SameLine();
+
+    int lag_time = static_cast<int>(m_lag_time.count());
+    ImGui::SetNextItemWidth(8.f * ImGui::GetFontSize());
+    if (ImGui::InputInt("Delay", &lag_time)) {
+        lag_time = std::max(lag_time, 0);
+        m_lag_time = std::chrono::milliseconds(lag_time);
+        dirty = true;
     }
-    startTimePeriod();
-}
 
-static void lagCloseDown(PacketNode* head, PacketNode* tail) {
-    PacketNode* oldLast = tail->prev;
-    UNREFERENCED_PARAMETER(head);
-    // flush all buffered packets
-    LOG("Closing down lag, flushing %d packets", bufSize);
-    while (!isBufEmpty()) {
-        insertAfter(popNode(bufTail->prev), oldLast);
-        --bufSize;
+    ImGui::SameLine();
+
+    ImGui::SetNextItemWidth(8.f * ImGui::GetFontSize());
+    if (ImGui::InputFloat("Chance", &m_chance)) {
+        m_chance = std::clamp(m_chance, 0.f, 100.f);
+        dirty = true;
     }
-    endTimePeriod();
+
+    ImGui::EndGroup();
+    ImGui::PopID();
+
+    return dirty;
 }
 
-static short lagProcess(PacketNode* head, PacketNode* tail) {
-    DWORD currentTime = timeGetTime();
-    PacketNode* pac = tail->prev;
-    // pick up all packets and fill in the current time
-    while (bufSize < KEEP_AT_MOST && pac != head) {
-        if (checkDirection(pac->addr.Outbound, lagInbound, lagOutbound)) {
-            insertAfter(popNode(pac), bufHead)->timestamp = timeGetTime();
-            ++bufSize;
-            pac = tail->prev;
+void LagModule::enable() {
+    LOG("Enabling");
+    assert(m_lagged_packets.empty());
+}
+
+void LagModule::disable() {
+    LOG("Disabling, flushing %zu packets", m_lagged_packets.size());
+
+    // Send all lagged packets
+    g_packets.splice(g_packets.cend(), m_lagged_packets);
+}
+
+std::optional<std::chrono::milliseconds> LagModule::process() {
+    const auto current_time_point = std::chrono::steady_clock::now();
+    for (auto it = g_packets.begin(); it != g_packets.end();) {
+        const auto itCopy = it++;
+        const auto packet = *itCopy;
+        if (check_direction(packet.addr.Outbound, m_inbound, m_outbound)) {
+            m_lagged_packets.splice(m_lagged_packets.cend(), g_packets, itCopy);
+        }
+    }
+
+    // Try sending overdue packets
+    std::optional<std::chrono::milliseconds> schedule_after = std::nullopt;
+    for (auto it = m_lagged_packets.begin(); it != m_lagged_packets.end();) {
+        const auto itCopy = it++;
+        const auto packet = *itCopy;
+        if (current_time_point > packet.captured_at + m_lag_time) {
+            g_packets.splice(g_packets.cend(), m_lagged_packets, itCopy);
+            m_indicator = 1.f;
+            m_dirty = true;
+        } else if (schedule_after) {
+            const auto will_send_after =
+                current_time_point - (packet.captured_at + m_lag_time);
+            schedule_after = std::chrono::milliseconds(
+                std::min(schedule_after->count(), will_send_after.count()));
         } else {
-            pac = pac->prev;
+            const auto will_send_after =
+                current_time_point - (packet.captured_at + m_lag_time);
+            schedule_after =
+                std::chrono::duration_cast<std::chrono::milliseconds>(
+                    will_send_after);
         }
     }
 
-    // try sending overdue packets from buffer tail
-    while (!isBufEmpty()) {
-        pac = bufTail->prev;
-        if (currentTime > pac->timestamp + lagTime) {
-            insertAfter(popNode(bufTail->prev),
-                        head); // sending queue is already empty by now
-            --bufSize;
-            LOG("Send lagged packets.");
-        } else {
-            LOG("Sent some lagged packets, still have %d in buf", bufSize);
-            break;
-        }
+    // If buffer is full just flush things out
+    if (m_lagged_packets.size() > MAX_PACKETS) {
+        LOG("Buffer full, flushing");
+        g_packets.splice(g_packets.cend(), m_lagged_packets);
     }
 
-    // if buffer is full just flush things out
-    if (bufSize >= KEEP_AT_MOST) {
-        int flushCnt = FLUSH_WHEN_FULL;
-        while (flushCnt-- > 0) {
-            insertAfter(popNode(bufTail->prev), head);
-            --bufSize;
-        }
-    }
-
-    return bufSize > 0;
+    return schedule_after;
 }
-
-static int lag_enable(lua_State* L) {
-    int type = lua_gettop(L) > 0 ? lua_type(L, -1) : LUA_TNIL;
-    switch (type) {
-    case LUA_TBOOLEAN:
-        bool enabled = lua_toboolean(L, -1);
-        lagEnabled = enabled;
-        break;
-    case LUA_TNIL:
-        lua_pushboolean(L, lagEnabled);
-        return 1;
-    default:
-        char message[256];
-        int message_length = snprintf(message, sizeof(message),
-                                      "Invalid argument #1 to lag_enable: '%s'",
-                                      lua_typename(L, type));
-        lua_pushlstring(L, message, message_length);
-        lua_error(L);
-        break;
-    }
-
-    return 0;
-}
-
-static void push_lua_functions(lua_State* L) {
-    lua_pushcfunction(L, lag_enable);
-    lua_setfield(L, -2, "enable");
-}
-
-Module lagModule = {"Lag", NAME, (short*)&lagEnabled, lagSetupUI, lagStartUp,
-                    lagCloseDown, lagProcess,
-                    // runtime fields
-                    0, 0, NULL, push_lua_functions};

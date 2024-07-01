@@ -1,4 +1,5 @@
 #include <cassert>
+#include <chrono>
 #include <memory.h>
 #include <thread>
 #include <windivert.h>
@@ -136,7 +137,7 @@ void WinDivert::read_thread(ThreadData thread_data) {
             g_packets.emplace_back<PacketNode>({
                 .packet = std::move(packet),
                 .addr = address,
-                .timestamp = 0,
+                .captured_at = std::chrono::steady_clock::now(),
             });
 
             // Notify write thread
