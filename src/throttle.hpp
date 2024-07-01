@@ -22,8 +22,9 @@ public:
     virtual bool draw();
 
     virtual void enable();
-    virtual void process();
     virtual void disable();
+
+    virtual std::optional<std::chrono::milliseconds> process();
 
 private:
     void flush();

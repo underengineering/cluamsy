@@ -53,7 +53,7 @@ bool DropModule::draw() {
 void DropModule::enable() { LOG("Enabling"); }
 void DropModule::disable() { LOG("Disabling"); }
 
-void DropModule::process() {
+std::optional<std::chrono::milliseconds> DropModule::process() {
     int dropped = 0;
     for (auto it = g_packets.begin(); it != g_packets.end();) {
         auto& packet = *it;
@@ -72,4 +72,6 @@ void DropModule::process() {
         m_indicator = 1.f;
         m_dirty = true;
     }
+
+    return std::nullopt;
 }

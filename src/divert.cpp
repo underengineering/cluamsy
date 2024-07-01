@@ -145,19 +145,26 @@ void WinDivert::read_thread(ThreadData thread_data) {
 }
 
 void WinDivert::write_thread(ThreadData thread_data) {
+    std::optional<std::chrono::milliseconds> wait_timeout;
+    const auto wait_predicate = [&thread_data] {
+        return !g_packets.empty() || thread_data.stop;
+    };
+
     while (true) {
         // Wait for packets
         std::unique_lock lock(thread_data.packets_mutex);
-        thread_data.packets_condvar.wait(lock, [&thread_data] {
-            return !g_packets.empty() || thread_data.stop;
-        });
+        if (wait_timeout) {
+            thread_data.packets_condvar.wait_for(lock, *wait_timeout,
+                                                 wait_predicate);
+            wait_timeout = std::nullopt;
+        } else {
+            thread_data.packets_condvar.wait(lock, wait_predicate);
+        }
 
         if (thread_data.stop) {
             LOG("Stopping");
             break;
         }
-
-        // TODO: Scheduling
 
         // Run modules
         for (const auto& module : g_modules) {
@@ -168,7 +175,15 @@ void WinDivert::write_thread(ThreadData thread_data) {
                     module->m_was_enabled = true;
                 }
 
-                module->process();
+                const auto schedule_after = module->process();
+                if (schedule_after) {
+                    if (wait_timeout) {
+                        wait_timeout = std::chrono::milliseconds(std::min(
+                            wait_timeout->count(), schedule_after->count()));
+                    } else {
+                        wait_timeout = schedule_after;
+                    }
+                }
             } else if (module->m_was_enabled) {
                 module->disable();
                 module->m_was_enabled = false;

@@ -78,7 +78,7 @@ void ThrottleModule::flush() {
     m_dirty = true;
 }
 
-void ThrottleModule::process() {
+std::optional<std::chrono::milliseconds> ThrottleModule::process() {
     if (!m_throttling && calcChance(m_chance)) {
         LOG("Start new throttling w/ chance %.1f, time frame: %lld", m_chance,
             m_timeframe_ms.count());
@@ -104,7 +104,16 @@ void ThrottleModule::process() {
         // send all when throttled enough, including in current step
         const auto delta_time = current_time_point - m_start_point;
         if (m_throttle_list.size() >= MAX_PACKETS ||
-            delta_time > m_timeframe_ms)
+            delta_time > m_timeframe_ms) {
             flush();
+            return std::nullopt;
+        } else {
+            const auto delta_time_ms =
+                std::chrono::duration_cast<std::chrono::milliseconds>(
+                    delta_time);
+            return m_timeframe_ms - delta_time_ms;
+        }
     }
+
+    return std::nullopt;
 }

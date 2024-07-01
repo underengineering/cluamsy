@@ -12,8 +12,9 @@ public:
     virtual bool draw();
 
     virtual void enable();
-    virtual void process();
     virtual void disable();
+
+    virtual std::optional<std::chrono::milliseconds> process();
 
 public:
     bool m_inbound = true;

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <array>
+#include <chrono>
 #include <memory>
 
 class Module {
@@ -12,7 +13,7 @@ public:
     virtual void enable() = 0;
     virtual void disable() = 0;
 
-    virtual void process() = 0;
+    virtual std::optional<std::chrono::milliseconds> process() = 0;
 
 public:
     // Static module data
