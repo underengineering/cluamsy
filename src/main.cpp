@@ -246,24 +246,29 @@ private:
 static bool check_is_running() {
     // It will be closed and destroyed when programm terminates (according to
     // MSDN).
-    HANDLE hStartEvent = CreateEventW(NULL, FALSE, FALSE,
-                                      L"Global\\CLUMSY_IS_RUNNING_EVENT_NAME");
+    const auto event_handle = CreateEventW(
+        NULL, FALSE, FALSE, L"Global\\CLUMSY_IS_RUNNING_EVENT_NAME");
 
-    if (hStartEvent == NULL)
-        return TRUE;
+    if (event_handle == NULL)
+        return true;
 
     if (GetLastError() == ERROR_ALREADY_EXISTS) {
-        CloseHandle(hStartEvent);
-        hStartEvent = NULL;
-        return TRUE;
+        CloseHandle(event_handle);
+        return true;
     }
 
-    return FALSE;
+    return false;
 }
 
 int main(int argc, char* argv[]) {
     // LOG("Is Run As Admin: %d", IsRunAsAdmin());
     // LOG("Is Elevated: %d", IsElevated());
+
+    if (check_is_running()) {
+        MessageBoxA(NULL, "There's already an instance of clumsy running.",
+                    "Aborting", MB_OK);
+        return -1;
+    }
 
     AllocConsole();
     freopen("CONIN$", "r", stdin);
