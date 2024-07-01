@@ -1,5 +1,3 @@
-#include <unordered_map>
-#include <unordered_set>
 #define WIN32_LEAN_AND_MEAN
 #include <Windows.h>
 
@@ -26,105 +24,6 @@ bool InputText(const char* label, std::string* str,
                ImGuiInputTextFlags flags = ImGuiInputTextFlags_None,
                ImGuiInputTextCallback callback = nullptr,
                void* user_data = nullptr);
-}
-
-// #include "common.hpp"
-
-// ! the order decides which module get processed first
-// Module *modules[MODULE_CNT] = {
-//     &lagModule, &dropModule,   &throttleModule, &dupModule,
-//     &oodModule, &tamperModule, &resetModule,    &bandwidthModule,
-// };
-
-// serializing config files using a stupid custom format
-#define CONFIG_FILE "config.txt"
-#define CONFIG_MAX_RECORDS 64
-#define CONFIG_BUF_SIZE 4096
-typedef struct {
-    char* filterName;
-    char* filterValue;
-} filterRecord;
-filterRecord filters[CONFIG_MAX_RECORDS] = {0};
-char configBuf[CONFIG_BUF_SIZE + 2]; // add some padding to write \n
-// BOOL parameterized =
-//     0; // parameterized flag, means reading args from command line
-
-// loading up filters and fill in
-void loadConfig() {
-    /* char path[MSG_BUFSIZE];
-    char *p;
-    FILE *f;
-    GetModuleFileName(NULL, path, MSG_BUFSIZE);
-    LOG("Executable path: %s", path);
-    p = strrchr(path, '\\');
-    if (p == NULL)
-        p = strrchr(path, '/'); // holy shit
-    strcpy(p + 1, CONFIG_FILE);
-    LOG("Config path: %s", path);
-    f = fopen(path, "r");
-    if (f) {
-        size_t len;
-        char *current, *last;
-        len = fread(configBuf, sizeof(char), CONFIG_BUF_SIZE, f);
-        if (len == CONFIG_BUF_SIZE) {
-            LOG("Config file is larger than %d bytes, get truncated.",
-                CONFIG_BUF_SIZE);
-        }
-        // always patch in a newline at the end to ease parsing
-        configBuf[len] = '\n';
-        configBuf[len + 1] = '\0';
-
-        // parse out the kv pairs. isn't quite safe
-        filtersSize = 0;
-        last = current = configBuf;
-        do {
-            // eat up empty lines
-        EAT_SPACE:
-            while (isspace(*current)) {
-                ++current;
-            }
-            if (*current == '#') {
-                current = strchr(current, '\n');
-                if (!current)
-                    break;
-                current = current + 1;
-                goto EAT_SPACE;
-            }
-
-            // now we can start
-            last = current;
-            current = strchr(last, ':');
-            if (!current)
-                break;
-            *current = '\0';
-            filters[filtersSize].filterName = last;
-            current += 1;
-            while (isspace(*current)) {
-                ++current;
-            } // eat potential space after :
-            last = current;
-            current = strchr(last, '\n');
-            if (!current)
-                break;
-            filters[filtersSize].filterValue = last;
-            *current = '\0';
-            if (*(current - 1) == '\r')
-                *(current - 1) = 0;
-            last = current = current + 1;
-            ++filtersSize;
-        } while (last && last - configBuf < CONFIG_BUF_SIZE);
-        LOG("Loaded %u records.", filtersSize);
-    }
-
-    if (!f || filtersSize == 0) {
-        LOG("Failed to load from config. Fill in a simple one.");
-        // config is missing or ill-formed. fill in some simple ones
-        filters[filtersSize].filterName = "loopback packets";
-        filters[filtersSize].filterValue =
-            "outbound and ip.DstAddr >= 127.0.0.1 "
-            "and ip.DstAddr <= 127.255.255.255";
-        filtersSize = 1;
-    } */
 }
 
 class Application {
@@ -204,24 +103,23 @@ public:
         ImGui_ImplSDL2_InitForOpenGL(m_window, m_gl_context);
         ImGui_ImplOpenGL3_Init();
 
-        if (true) {
+        {
             // Query default monitor resolution
             float ddpi, hdpi, vdpi;
             if (SDL_GetDisplayDPI(0, &ddpi, &hdpi, &vdpi) != 0) {
-                fprintf(stderr,
-                        "Failed to obtain DPI information for display 0: %s\n",
-                        SDL_GetError());
-                exit(1);
+                LOG("Failed to obtain DPI information for display 0: %s",
+                    SDL_GetError());
+                return;
             }
-            float dpi_scaling = ddpi / 96.f;
 
+            float dpi_scaling = ddpi / 96.f;
             ImGui::GetStyle().ScaleAllSizes(dpi_scaling);
             io.Fonts->AddFontFromFileTTF("C:/Windows/Fonts/consola.ttf",
                                          std::round(12.0f * dpi_scaling));
         }
 
         // Run the main loop
-        while (1) {
+        while (true) {
             SDL_Event event;
             if (SDL_PollEvent(&event) <= 0) {
                 SDL_Delay(10);
@@ -372,46 +270,21 @@ int main(int argc, char* argv[]) {
     freopen("CONOUT$", "w", stdout);
     freopen("CONOUT$", "w", stderr);
 
-    printf("test\n");
-
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER | SDL_INIT_GAMECONTROLLER) <
         0) {
-        SDL_LogError(SDL_LOG_CATEGORY_APPLICATION,
-                     "Couldn't initialize SDL: %s", SDL_GetError());
-        exit(-1);
+        LOG("Couldn't initialize SDL: %s", SDL_GetError());
+        return -1;
     }
 
     auto config_entries = parse_config();
-
     auto app = Application::init(
         config_entries.value_or(std::unordered_map<std::string, Config>()));
-    if (!app) {
-        exit(-1);
-    }
-
-    // lua_state_init();
-
-    // parse arguments and set globals *before* setting up UI.
-    // arguments can be read and set after callbacks are setup
-    // LOG("argc: %d", argc);
-    if (argc > 1) {
-        /* if (!parseArgs(argc, argv)) {
-            fprintf(stderr,
-                    "invalid argument count. ensure you're using options as "
-                    "\"--drop on\"");
-            exit(-1); // fail fast.
-        }
-        parameterized = 1; */
-    }
+    if (!app)
+        return -1;
 
     app->run();
 
-    printf("oh\n");
     SDL_Quit();
-
-    // endTimePeriod(); // try close if not closing
-
-    // lua_state_close();
 
     return 0;
 }
