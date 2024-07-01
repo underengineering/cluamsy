@@ -90,21 +90,22 @@ std::optional<std::chrono::milliseconds> LagModule::process() {
     for (auto it = m_lagged_packets.begin(); it != m_lagged_packets.end();) {
         const auto itCopy = it++;
         const auto packet = *itCopy;
+
         if (current_time_point > packet.captured_at + m_lag_time) {
             g_packets.splice(g_packets.cend(), m_lagged_packets, itCopy);
             m_indicator = 1.f;
             m_dirty = true;
-        } else if (schedule_after) {
-            const auto will_send_after =
-                current_time_point - (packet.captured_at + m_lag_time);
-            schedule_after = std::chrono::milliseconds(
-                std::min(schedule_after->count(), will_send_after.count()));
         } else {
-            const auto will_send_after =
-                current_time_point - (packet.captured_at + m_lag_time);
-            schedule_after =
+            const auto will_send_after_ms =
                 std::chrono::duration_cast<std::chrono::milliseconds>(
-                    will_send_after);
+                    packet.captured_at + m_lag_time - current_time_point);
+
+            if (schedule_after) {
+                schedule_after = std::chrono::milliseconds(std::min(
+                    schedule_after->count(), will_send_after_ms.count()));
+            } else {
+                schedule_after = will_send_after_ms;
+            }
         }
     }
 
