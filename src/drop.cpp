@@ -57,8 +57,8 @@ std::optional<std::chrono::milliseconds> DropModule::process() {
     int dropped = 0;
     for (auto it = g_packets.begin(); it != g_packets.end();) {
         auto& packet = *it;
-        if (checkDirection(packet.addr.Outbound, m_inbound, m_outbound) &&
-            calcChance(m_chance)) {
+        if (check_direction(packet.addr.Outbound, m_inbound, m_outbound) &&
+            check_chance(m_chance)) {
             LOG("Dropped with chance %.1f%%, direction %s", m_chance,
                 packet.addr.Outbound ? "OUTBOUND" : "INBOUND");
             it = g_packets.erase(it);

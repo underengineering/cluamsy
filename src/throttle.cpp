@@ -79,7 +79,7 @@ void ThrottleModule::flush() {
 }
 
 std::optional<std::chrono::milliseconds> ThrottleModule::process() {
-    if (!m_throttling && calcChance(m_chance)) {
+    if (!m_throttling && check_chance(m_chance)) {
         LOG("Start new throttling w/ chance %.1f, time frame: %lld", m_chance,
             m_timeframe_ms.count());
         m_throttling = true;
@@ -95,7 +95,7 @@ std::optional<std::chrono::milliseconds> ThrottleModule::process() {
              it != g_packets.end() && m_throttle_list.size() < MAX_PACKETS;) {
             const auto itCopy = it++;
             const auto& packet = *itCopy;
-            if (checkDirection(packet.addr.Outbound, m_inbound, m_outbound)) {
+            if (check_direction(packet.addr.Outbound, m_inbound, m_outbound)) {
                 m_throttle_list.splice(m_throttle_list.cend(), g_packets,
                                        itCopy);
             }

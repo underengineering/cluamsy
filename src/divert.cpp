@@ -1,3 +1,4 @@
+#include <cassert>
 #include <memory.h>
 #include <thread>
 #include <windivert.h>
