@@ -5,6 +5,8 @@
 
 #include "lua_util.hpp"
 
+#include "common.hpp"
+
 class Module {
     friend class WinDivert;
 
@@ -30,7 +32,7 @@ public:
 
 private:
     static int lua_method_enabled(lua_State* L) {
-        Module* module = std::bit_cast<Module*>(lua_touserdata(L, 1));
+        auto* module = *std::bit_cast<Module**>(lua_touserdata(L, 1));
         return lua_getset(L, module->m_enabled, 2);
     };
 

@@ -53,16 +53,14 @@ public:
 
 private:
     static int lua_method_chance(lua_State* L) {
-        ThrottleModule* module =
-            std::bit_cast<ThrottleModule*>(lua_touserdata(L, 1));
+        auto* module = *std::bit_cast<ThrottleModule**>(lua_touserdata(L, 1));
         return lua_getset(L, module->m_chance, 2);
     };
 
     static int lua_method_timeframe(lua_State* L) {
-        ThrottleModule* module =
-            std::bit_cast<ThrottleModule*>(lua_touserdata(L, 1));
+        auto* module = *std::bit_cast<ThrottleModule**>(lua_touserdata(L, 1));
 
-        int lag_time = module->m_timeframe_ms.count();
+        int lag_time = static_cast<int>(module->m_timeframe_ms.count());
         const auto rets = lua_getset(L, lag_time, 2);
         if (rets == 1)
             module->m_timeframe_ms = std::chrono::milliseconds(lag_time);

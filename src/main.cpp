@@ -39,6 +39,9 @@ public:
         : m_config_entries(std::move(other.m_config_entries)),
           m_lua(std::move(other.m_lua)), m_window(other.m_window),
           m_gl_context(other.m_gl_context) {
+        // TODO: I hate move semantics
+        m_lua.push_api(m_win_divert.modules());
+
         other.m_window = nullptr;
         other.m_gl_context = nullptr;
     }

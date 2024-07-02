@@ -38,7 +38,7 @@ public:
 
 private:
     static int lua_method_chance(lua_State* L) {
-        DropModule* module = std::bit_cast<DropModule*>(lua_touserdata(L, 1));
+        auto* module = *std::bit_cast<DropModule**>(lua_touserdata(L, 1));
         return lua_getset(L, module->m_chance, 2);
     };
 
