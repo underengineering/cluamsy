@@ -16,7 +16,7 @@ private:
 public:
     ThrottleModule() {
         m_display_name = "Throttle";
-        m_short_name = "throttle";
+        m_short_name = "Throttle";
     }
 
     virtual bool draw();
@@ -28,6 +28,47 @@ public:
 
 private:
     void flush();
+
+public:
+    static void lua_setup(lua_State* L) {
+        luaL_Reg methods[] = {
+            {"chance", lua_method_chance},
+            {"timeframe", lua_method_timeframe},
+            {},
+        };
+
+        luaL_newmetatable(L, "Throttle");
+
+        // Inherit from `Module`
+        luaL_getmetatable(L, "Module");
+        lua_setmetatable(L, -2);
+
+        luaL_setfuncs(L, methods, 0);
+
+        lua_pushvalue(L, -1);
+        lua_setfield(L, -2, "__index");
+
+        lua_pop(L, 1);
+    }
+
+private:
+    static int lua_method_chance(lua_State* L) {
+        ThrottleModule* module =
+            std::bit_cast<ThrottleModule*>(lua_touserdata(L, 1));
+        return lua_getset(L, module->m_chance, 2);
+    };
+
+    static int lua_method_timeframe(lua_State* L) {
+        ThrottleModule* module =
+            std::bit_cast<ThrottleModule*>(lua_touserdata(L, 1));
+
+        int lag_time = module->m_timeframe_ms.count();
+        const auto rets = lua_getset(L, lag_time, 2);
+        if (rets == 1)
+            module->m_timeframe_ms = std::chrono::milliseconds(lag_time);
+
+        return rets;
+    };
 
 private:
     bool m_inbound = true;

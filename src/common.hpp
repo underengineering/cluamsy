@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdlib>
 #include <lua.hpp>
 #include <windivert.h>
 
@@ -8,11 +9,6 @@
 #else
 #define LOG(fmt, ...)
 #endif
-
-// lua
-extern lua_State* g_luaState;
-extern void lua_state_init(void);
-extern void lua_state_close(void);
 
 inline bool check_chance(float chance) {
     return static_cast<float>(rand()) / RAND_MAX * 100.f < chance;

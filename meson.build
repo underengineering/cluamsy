@@ -32,12 +32,12 @@ sources = files(
   # 'src/main.cpp',
   # 'src/ood.cpp',
   'src/packet.cpp',
-  'src/module.cpp',
   # 'src/reset.cpp',
   # 'src/tamper.cpp',
-  'src/throttle.cpp'
+  'src/throttle.cpp',
   # 'src/utils.cpp',
-  # 'src/lua.cpp',
+  'src/lua.cpp',
+  'src/lua_util.cpp'
 )
 exe = executable(
   'cluamsy',

@@ -17,6 +17,7 @@
 #include "common.hpp"
 #include "config.hpp"
 #include "divert.hpp"
+#include "lua.hpp"
 #include "module.hpp"
 
 namespace ImGui {
@@ -30,15 +31,14 @@ class Application {
 private:
     Application(SDL_Window* window, SDL_GLContext gl_context,
                 std::unordered_map<std::string, Config> config_entries)
-        : m_config_entries(config_entries), m_window(window),
-          m_gl_context(gl_context) {};
+        : m_config_entries(config_entries), m_lua(m_win_divert.modules()),
+          m_window(window), m_gl_context(gl_context) {};
 
 public:
-    Application(Application&& other) {
-        m_window = other.m_window;
-        m_gl_context = other.m_gl_context;
-        m_config_entries = std::move(other.m_config_entries);
-
+    Application(Application&& other)
+        : m_config_entries(std::move(other.m_config_entries)),
+          m_lua(std::move(other.m_lua)), m_window(other.m_window),
+          m_gl_context(other.m_gl_context) {
         other.m_window = nullptr;
         other.m_gl_context = nullptr;
     }
@@ -84,7 +84,10 @@ public:
         return Application(window, gl_context, config_entries);
     }
 
-    void run() {
+    bool run() {
+        // Run lua script
+        m_lua.run_file("main.lua");
+
         SDL_GL_MakeCurrent(m_window, m_gl_context);
         SDL_GL_SetSwapInterval(1);
 
@@ -109,7 +112,7 @@ public:
             if (SDL_GetDisplayDPI(0, &ddpi, &hdpi, &vdpi) != 0) {
                 LOG("Failed to obtain DPI information for display 0: %s",
                     SDL_GetError());
-                return;
+                return false;
             }
 
             float dpi_scaling = ddpi / 96.f;
@@ -126,7 +129,7 @@ public:
 
                 // Check if modules need to be rerendered
                 bool modules_dirty = false;
-                for (auto& module : g_modules) {
+                for (auto& module : m_win_divert.modules()) {
                     modules_dirty |= module->m_dirty;
                     module->m_dirty = false;
                 }
@@ -158,6 +161,8 @@ public:
 
             SDL_GL_SwapWindow(m_window);
         }
+
+        return true;
     }
 
     void draw() {
@@ -202,7 +207,7 @@ public:
                                m_error_message.c_str());
         }
 
-        for (const auto& module : g_modules) {
+        for (const auto& module : m_win_divert.modules()) {
             m_dirty |= module->draw();
         }
 
@@ -230,9 +235,11 @@ private:
     std::unordered_map<std::string, Config> m_config_entries;
     std::optional<std::string_view> m_selected_config_entry;
 
+    WinDivert m_win_divert;
+    Lua m_lua;
+
     std::string m_filter;
     std::string m_error_message;
-    WinDivert m_win_divert;
     // Is windivert enabled
     bool m_enabled = false;
     // Should rerender

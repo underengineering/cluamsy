@@ -9,12 +9,19 @@
 #include "module.hpp"
 #include "packet.hpp"
 
+#include "drop.hpp"
+#include "lag.hpp"
+#include "throttle.hpp"
+
 static constexpr INT16 DIVERT_PRIORITY = 0;
 static constexpr UINT64 QUEUE_LEN = 2 << 10;
 static constexpr UINT64 QUEUE_TIME = 2 << 9;
 
-WinDivert::WinDivert() {}
-WinDivert::~WinDivert() { stop(); }
+WinDivert::WinDivert() {
+    m_modules.emplace_back(std::make_shared<LagModule>());
+    m_modules.emplace_back(std::make_shared<DropModule>());
+    m_modules.emplace_back(std::make_shared<ThrottleModule>());
+}
 
 std::optional<std::string> WinDivert::start(const std::string& filter) {
     LOG("Starting");
@@ -45,7 +52,7 @@ std::optional<std::string> WinDivert::start(const std::string& filter) {
         QUEUE_TIME);
 
     // Initialize modules
-    for (auto& module : g_modules) {
+    for (auto& module : m_modules) {
         if (module->m_enabled)
             module->enable();
 
@@ -56,6 +63,8 @@ std::optional<std::string> WinDivert::start(const std::string& filter) {
 
     ThreadData thread_data = {
         .divert_handle = m_divert_handle,
+        .modules = m_modules,
+
         .packets_mutex = m_packets_mutex,
         .packets_condvar = m_packets_condvar,
         .stop = m_stop,
@@ -98,7 +107,7 @@ bool WinDivert::stop() {
     assert(g_packets.empty());
 
     // Run post-disable module cleanups
-    for (auto& module : g_modules) {
+    for (auto& module : m_modules) {
         if (module->m_enabled && module->m_was_enabled)
             module->disable();
     }
@@ -169,7 +178,7 @@ void WinDivert::write_thread(ThreadData thread_data) {
         }
 
         // Run modules
-        for (const auto& module : g_modules) {
+        for (const auto& module : thread_data.modules) {
             if (module->m_enabled) {
                 // Initialize it if it wasn't
                 if (!module->m_was_enabled) {
