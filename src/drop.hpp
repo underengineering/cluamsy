@@ -39,7 +39,11 @@ public:
 private:
     static int lua_method_chance(lua_State* L) {
         auto* module = *std::bit_cast<DropModule**>(lua_touserdata(L, 1));
-        return lua_getset(L, module->m_chance, 2);
+        const auto rets = lua_getset(L, module->m_chance, 2);
+        if (rets == 0)
+            module->m_dirty = true;
+
+        return rets;
     };
 
 private:

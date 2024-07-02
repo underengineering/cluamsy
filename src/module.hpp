@@ -33,7 +33,11 @@ public:
 private:
     static int lua_method_enabled(lua_State* L) {
         auto* module = *std::bit_cast<Module**>(lua_touserdata(L, 1));
-        return lua_getset(L, module->m_enabled, 2);
+        const auto rets = lua_getset(L, module->m_enabled, 2);
+        if (rets == 0)
+            module->m_dirty = true;
+
+        return rets;
     };
 
 public:
