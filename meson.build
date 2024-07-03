@@ -8,7 +8,7 @@ sdl2_dep = dependency('sdl2', version : '>=2.30', required : true)
 sdl2_main_dep = dependency('sdl2main')
 opengl_dep = dependency('gl', required : true)
 
-imgui_dep = dependency('imgui', version : '>=1.89', required : true, default_options : ['sdl_renderer=true'])
+imgui_dep = dependency('imgui', version : '>=1.89', required : true, default_options : ['sdl_renderer=enabled'])
 
 windivert_includes = include_directories('./external/WinDivert-2.2.0-C/include/')
 windivert_dep = declare_dependency(
