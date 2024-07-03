@@ -187,13 +187,11 @@ void WinDivert::write_thread(ThreadData thread_data) {
                 }
 
                 const auto schedule_after = module->process();
-                if (schedule_after) {
-                    if (wait_timeout) {
-                        wait_timeout = std::chrono::milliseconds(std::min(
-                            wait_timeout->count(), schedule_after->count()));
-                    } else {
-                        wait_timeout = schedule_after;
-                    }
+                if (schedule_after && wait_timeout) {
+                    wait_timeout = std::chrono::milliseconds(std::min(
+                        wait_timeout->count(), schedule_after->count()));
+                } else if (schedule_after) {
+                    wait_timeout = schedule_after;
                 }
             } else if (module->m_was_enabled) {
                 module->disable();
