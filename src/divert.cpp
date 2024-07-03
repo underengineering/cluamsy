@@ -202,7 +202,9 @@ void WinDivert::write_thread(ThreadData thread_data) {
         }
 
         // Send all packets
-        for (const auto& packet : g_packets) {
+        for (auto it = g_packets.begin(); it != g_packets.end();) {
+            const auto& packet = *it;
+
             UINT send;
             if (!WinDivertSend(thread_data.divert_handle, packet.packet.data(),
                                static_cast<UINT>(packet.packet.size()), &send,
@@ -211,8 +213,8 @@ void WinDivert::write_thread(ThreadData thread_data) {
             } else if (send < packet.packet.size()) {
                 LOG("IT HAPPENED");
             }
-        }
 
-        g_packets.clear();
+            g_packets.erase(it++);
+        }
     }
 }
