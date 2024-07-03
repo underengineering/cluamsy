@@ -91,9 +91,8 @@ bool WinDivert::stop() {
 
     // Notify write thread about shutdown
     {
-        m_stop = true;
-
         std::unique_lock lock(m_packets_mutex);
+        m_stop = true;
         m_packets_condvar.notify_one();
     }
 
