@@ -41,10 +41,7 @@ private:
     std::mutex m_packets_mutex;
     // Notified when packets are read in `read_thread`
     std::condition_variable m_packets_condvar;
-    // Notified when threads need to stop
-    std::condition_variable m_stop_condvar;
 
-    bool m_started = false;
     std::thread m_read_thread;
     std::thread m_write_thread;
     HANDLE m_divert_handle = nullptr;

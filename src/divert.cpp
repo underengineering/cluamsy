@@ -73,7 +73,6 @@ std::optional<std::string> WinDivert::start(const std::string& filter) {
     m_read_thread = std::thread(read_thread, thread_data);
     m_write_thread = std::thread(write_thread, thread_data);
 
-    m_started = true;
     return std::nullopt;
 }
 
