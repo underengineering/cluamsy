@@ -1,11 +1,11 @@
 project('cluamsy', 'cpp',
   version : '0.1',
-  default_options : ['warning_level=3'])
+  default_options : ['warning_level=3', 'default_library=static'])
 
 cxx = meson.get_compiler('cpp')
 
 sdl2_dep = dependency('sdl2', version : '>=2.30', required : true)
-sdl2_main_dep = dependency('sdl2main')
+sdl2_main_dep = dependency('sdl2main', required : true)
 opengl_dep = dependency('gl', required : true)
 
 imgui_dep = dependency('imgui', version : '>=1.89', required : true, default_options : ['sdl_renderer=enabled'])
