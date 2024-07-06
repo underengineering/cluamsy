@@ -11,11 +11,11 @@ static Ihandle *inboundCheckbox, *outboundCheckbox, *chanceInput;
 
 static volatile short oodEnabled = 0, oodInbound = 1, oodOutbound = 1,
                       chance = 1000; // [0-10000]
-static PacketNode *oodPacket = NULL;
+static PacketNode* oodPacket = NULL;
 static int giveUpCnt;
 
-static Ihandle *oodSetupUI() {
-    Ihandle *oodControlsBox =
+static Ihandle* oodSetupUI() {
+    Ihandle* oodControlsBox =
         IupHbox(inboundCheckbox = IupToggle("Inbound", NULL),
                 outboundCheckbox = IupToggle("Outbound", NULL),
                 IupLabel("Chance(%):"), chanceInput = IupText(NULL), NULL);
@@ -23,11 +23,11 @@ static Ihandle *oodSetupUI() {
     IupSetAttribute(chanceInput, "VISIBLECOLUMNS", "4");
     IupSetAttribute(chanceInput, "VALUE", "10.0");
     IupSetCallback(chanceInput, "VALUECHANGED_CB", uiSyncChance);
-    IupSetAttribute(chanceInput, SYNCED_VALUE, (char *)&chance);
+    IupSetAttribute(chanceInput, SYNCED_VALUE, (char*)&chance);
     IupSetCallback(inboundCheckbox, "ACTION", (Icallback)uiSyncToggle);
-    IupSetAttribute(inboundCheckbox, SYNCED_VALUE, (char *)&oodInbound);
+    IupSetAttribute(inboundCheckbox, SYNCED_VALUE, (char*)&oodInbound);
     IupSetCallback(outboundCheckbox, "ACTION", (Icallback)uiSyncToggle);
-    IupSetAttribute(outboundCheckbox, SYNCED_VALUE, (char *)&oodOutbound);
+    IupSetAttribute(outboundCheckbox, SYNCED_VALUE, (char*)&oodOutbound);
 
     // enable by default to avoid confusing
     IupSetAttribute(inboundCheckbox, "VALUE", "ON");
@@ -49,7 +49,7 @@ static void oodStartUp() {
     assert(oodPacket == NULL);
 }
 
-static void oodCloseDown(PacketNode *head, PacketNode *tail) {
+static void oodCloseDown(PacketNode* head, PacketNode* tail) {
     UNREFERENCED_PARAMETER(tail);
     LOG("ood disabled");
     if (oodPacket != NULL) {
@@ -59,7 +59,7 @@ static void oodCloseDown(PacketNode *head, PacketNode *tail) {
 }
 
 // find the next packet fits the direction check or null
-static PacketNode *nextCorrectDirectionNode(PacketNode *p) {
+static PacketNode* nextCorrectDirectionNode(PacketNode* p) {
     if (p == NULL) {
         return NULL;
     }
@@ -73,7 +73,7 @@ static PacketNode *nextCorrectDirectionNode(PacketNode *p) {
 }
 
 // not really perfect swap since it assumes a is before b
-static void swapNode(PacketNode *a, PacketNode *b) {
+static void swapNode(PacketNode* a, PacketNode* b) {
     assert(a->prev && a->next && b->prev &&
            b->next); // not accidentally swapping head/tail
     assert(a != b);  // treat swap self as error here since we shouldn't really
@@ -97,7 +97,7 @@ static void swapNode(PacketNode *a, PacketNode *b) {
     }
 }
 
-static short oodProcess(PacketNode *head, PacketNode *tail) {
+static short oodProcess(PacketNode* head, PacketNode* tail) {
     if (oodPacket != NULL) {
         if (!isListEmpty() || --giveUpCnt == 0) {
             LOG("Ooo sent direction %s, is giveup %s",
@@ -108,7 +108,7 @@ static short oodProcess(PacketNode *head, PacketNode *tail) {
             giveUpCnt = KEEP_TURNS_MAX;
         } // skip picking packets when having oodPacket already
     } else if (!isListEmpty()) {
-        PacketNode *pac = head->next;
+        PacketNode* pac = head->next;
         if (pac->next == tail) {
             // only contains a single packet, then pick it out and insert later
             if (checkDirection(pac->addr.Outbound, oodInbound, oodOutbound) &&
@@ -142,7 +142,7 @@ static short oodProcess(PacketNode *head, PacketNode *tail) {
     return FALSE;
 }
 
-static int ood_enable(lua_State *L) {
+static int ood_enable(lua_State* L) {
     int type = lua_gettop(L) > 0 ? lua_type(L, -1) : LUA_TNIL;
     switch (type) {
     case LUA_TBOOLEAN:
@@ -165,12 +165,12 @@ static int ood_enable(lua_State *L) {
     return 0;
 }
 
-static void push_lua_functions(lua_State *L) {
+static void push_lua_functions(lua_State* L) {
     lua_pushcfunction(L, ood_enable);
     lua_setfield(L, -2, "enable");
 }
 
-Module oodModule = {"Out of order", NAME, (short *)&oodEnabled, oodSetupUI,
+Module oodModule = {"Out of order", NAME, (short*)&oodEnabled, oodSetupUI,
                     oodStartUp, oodCloseDown, oodProcess,
                     // runtime fields
                     0, 0, NULL, push_lua_functions};
