@@ -23,21 +23,21 @@ typedef struct {
     int32_t sample_num;
     int window_size;
     float scale;
-    uint32_t *array_sum;
-    uint32_t *array_sample;
+    uint32_t* array_sum;
+    uint32_t* array_sample;
 } CRateStats;
 
-CRateStats *crate_stats_new(int window_size, float scale);
+CRateStats* crate_stats_new(int window_size, float scale);
 
-void crate_stats_delete(CRateStats *rate);
+void crate_stats_delete(CRateStats* rate);
 
-void crate_stats_reset(CRateStats *rate);
+void crate_stats_reset(CRateStats* rate);
 
 // call when packet arrives, count is the packet size in bytes
-void crate_stats_update(CRateStats *rate, int32_t count, uint32_t now_ts);
+void crate_stats_update(CRateStats* rate, int32_t count, uint32_t now_ts);
 
 // calculate rate
-int32_t crate_stats_calculate(CRateStats *rate, uint32_t now_ts);
+int32_t crate_stats_calculate(CRateStats* rate, uint32_t now_ts);
 
 //---------------------------------------------------------------------
 // configuration
@@ -48,10 +48,10 @@ static volatile short bandwidthEnabled = 0, bandwidthInbound = 1,
                       bandwidthOutbound = 1;
 
 static volatile LONG bandwidthLimit = BANDWIDTH_DEFAULT;
-static CRateStats *rateStats = NULL;
+static CRateStats* rateStats = NULL;
 
-static Ihandle *bandwidthSetupUI() {
-    Ihandle *bandwidthControlsBox =
+static Ihandle* bandwidthSetupUI() {
+    Ihandle* bandwidthControlsBox =
         IupHbox(inboundCheckbox = IupToggle("Inbound", NULL),
                 outboundCheckbox = IupToggle("Outbound", NULL),
                 IupLabel("Limit(KB/s):"), bandwidthInput = IupText(NULL), NULL);
@@ -59,13 +59,13 @@ static Ihandle *bandwidthSetupUI() {
     IupSetAttribute(bandwidthInput, "VISIBLECOLUMNS", "4");
     IupSetAttribute(bandwidthInput, "VALUE", STR(BANDWIDTH_DEFAULT));
     IupSetCallback(bandwidthInput, "VALUECHANGED_CB", uiSyncInt32);
-    IupSetAttribute(bandwidthInput, SYNCED_VALUE, (char *)&bandwidthLimit);
+    IupSetAttribute(bandwidthInput, SYNCED_VALUE, (char*)&bandwidthLimit);
     IupSetAttribute(bandwidthInput, INTEGER_MAX, BANDWIDTH_MAX);
     IupSetAttribute(bandwidthInput, INTEGER_MIN, BANDWIDTH_MIN);
     IupSetCallback(inboundCheckbox, "ACTION", (Icallback)uiSyncToggle);
-    IupSetAttribute(inboundCheckbox, SYNCED_VALUE, (char *)&bandwidthInbound);
+    IupSetAttribute(inboundCheckbox, SYNCED_VALUE, (char*)&bandwidthInbound);
     IupSetCallback(outboundCheckbox, "ACTION", (Icallback)uiSyncToggle);
-    IupSetAttribute(outboundCheckbox, SYNCED_VALUE, (char *)&bandwidthOutbound);
+    IupSetAttribute(outboundCheckbox, SYNCED_VALUE, (char*)&bandwidthOutbound);
 
     // enable by default to avoid confusing
     IupSetAttribute(inboundCheckbox, "VALUE", "ON");
@@ -87,7 +87,7 @@ static void bandwidthStartUp() {
     LOG("bandwidth enabled");
 }
 
-static void bandwidthCloseDown(PacketNode *head, PacketNode *tail) {
+static void bandwidthCloseDown(PacketNode* head, PacketNode* tail) {
     UNREFERENCED_PARAMETER(head);
     UNREFERENCED_PARAMETER(tail);
     if (rateStats)
@@ -99,7 +99,7 @@ static void bandwidthCloseDown(PacketNode *head, PacketNode *tail) {
 //---------------------------------------------------------------------
 // process
 //---------------------------------------------------------------------
-static short bandwidthProcess(PacketNode *head, PacketNode *tail) {
+static short bandwidthProcess(PacketNode* head, PacketNode* tail) {
     int dropped = 0;
     DWORD now_ts = timeGetTime();
     int limit = bandwidthLimit * 1024;
@@ -110,7 +110,7 @@ static short bandwidthProcess(PacketNode *head, PacketNode *tail) {
     }
 
     while (head->next != tail) {
-        PacketNode *pac = head->next;
+        PacketNode* pac = head->next;
         int discard = 0;
         // chance in range of [0, 10000]
         if (checkDirection(pac->addr.Outbound, bandwidthInbound,
@@ -140,7 +140,7 @@ static short bandwidthProcess(PacketNode *head, PacketNode *tail) {
 //---------------------------------------------------------------------
 // module
 //---------------------------------------------------------------------
-static int bandwidth_enable(lua_State *L) {
+static int bandwidth_enable(lua_State* L) {
     int type = lua_gettop(L) > 0 ? lua_type(L, -1) : LUA_TNIL;
     switch (type) {
     case LUA_TBOOLEAN:
@@ -164,12 +164,12 @@ static int bandwidth_enable(lua_State *L) {
     return 0;
 }
 
-static void push_lua_functions(lua_State *L) {
+static void push_lua_functions(lua_State* L) {
     lua_pushcfunction(L, bandwidth_enable);
     lua_setfield(L, -2, "enable");
 }
 
-Module bandwidthModule = {"Bandwidth", NAME, (short *)&bandwidthEnabled,
+Module bandwidthModule = {"Bandwidth", NAME, (short*)&bandwidthEnabled,
                           bandwidthSetupUI, bandwidthStartUp,
                           bandwidthCloseDown, bandwidthProcess,
                           // runtime fields
@@ -178,12 +178,12 @@ Module bandwidthModule = {"Bandwidth", NAME, (short *)&bandwidthEnabled,
 //---------------------------------------------------------------------
 // create new CRateStat
 //---------------------------------------------------------------------
-CRateStats *crate_stats_new(int window_size, float scale) {
-    CRateStats *rate = (CRateStats *)malloc(sizeof(CRateStats));
+CRateStats* crate_stats_new(int window_size, float scale) {
+    CRateStats* rate = (CRateStats*)malloc(sizeof(CRateStats));
     assert(rate);
-    rate->array_sum = (uint32_t *)malloc(sizeof(uint32_t) * window_size);
+    rate->array_sum = (uint32_t*)malloc(sizeof(uint32_t) * window_size);
     assert(rate->array_sum);
-    rate->array_sample = (uint32_t *)malloc(sizeof(uint32_t) * window_size);
+    rate->array_sample = (uint32_t*)malloc(sizeof(uint32_t) * window_size);
     assert(rate->array_sample);
     rate->window_size = window_size;
     rate->scale = scale;
@@ -194,7 +194,7 @@ CRateStats *crate_stats_new(int window_size, float scale) {
 //---------------------------------------------------------------------
 // delete rate
 //---------------------------------------------------------------------
-void crate_stats_delete(CRateStats *rate) {
+void crate_stats_delete(CRateStats* rate) {
     if (rate) {
         rate->window_size = 0;
         if (rate->array_sum)
@@ -211,7 +211,7 @@ void crate_stats_delete(CRateStats *rate) {
 //---------------------------------------------------------------------
 // reset rate
 //---------------------------------------------------------------------
-void crate_stats_reset(CRateStats *rate) {
+void crate_stats_reset(CRateStats* rate) {
     int i;
     for (i = 0; i < rate->window_size; i++) {
         rate->array_sum[i] = 0;
@@ -227,7 +227,7 @@ void crate_stats_reset(CRateStats *rate) {
 //---------------------------------------------------------------------
 // evict oldest history
 //---------------------------------------------------------------------
-void crate_stats_evict(CRateStats *rate, uint32_t now_ts) {
+void crate_stats_evict(CRateStats* rate, uint32_t now_ts) {
     if (rate->initialized == 0)
         return;
 
@@ -258,7 +258,7 @@ void crate_stats_evict(CRateStats *rate, uint32_t now_ts) {
 //---------------------------------------------------------------------
 // update stats
 //---------------------------------------------------------------------
-void crate_stats_update(CRateStats *rate, int32_t count, uint32_t now_ts) {
+void crate_stats_update(CRateStats* rate, int32_t count, uint32_t now_ts) {
     if (rate->initialized == 0) {
         rate->oldest_ts = now_ts;
         rate->oldest_index = 0;
@@ -285,7 +285,7 @@ void crate_stats_update(CRateStats *rate, int32_t count, uint32_t now_ts) {
 //---------------------------------------------------------------------
 // calculate
 //---------------------------------------------------------------------
-int32_t crate_stats_calculate(CRateStats *rate, uint32_t now_ts) {
+int32_t crate_stats_calculate(CRateStats* rate, uint32_t now_ts) {
     int32_t active_size = (int32_t)(now_ts - rate->oldest_ts + 1);
     float r;
 

@@ -1,3 +1,5 @@
 packagecache
 LuaJIT-*
+imgui-*
+SDL2-*
 !*.wrap

@@ -14,7 +14,7 @@ static volatile short resetEnabled = 0, resetInbound = 1, resetOutbound = 1,
                       chance = 0, // [0-10000]
     setNextCount = 0;
 
-static int resetSetRSTNextButtonCb(Ihandle *ih) {
+static int resetSetRSTNextButtonCb(Ihandle* ih) {
     UNREFERENCED_PARAMETER(ih);
 
     if (!(*resetModule.enabledFlag)) {
@@ -26,8 +26,8 @@ static int resetSetRSTNextButtonCb(Ihandle *ih) {
     return IUP_DEFAULT;
 }
 
-static Ihandle *resetSetupUI() {
-    Ihandle *dupControlsBox =
+static Ihandle* resetSetupUI() {
+    Ihandle* dupControlsBox =
         IupHbox(rstButton = IupButton("RST next packet", NULL),
                 inboundCheckbox = IupToggle("Inbound", NULL),
                 outboundCheckbox = IupToggle("Outbound", NULL),
@@ -36,11 +36,11 @@ static Ihandle *resetSetupUI() {
     IupSetAttribute(chanceInput, "VISIBLECOLUMNS", "4");
     IupSetAttribute(chanceInput, "VALUE", "0");
     IupSetCallback(chanceInput, "VALUECHANGED_CB", uiSyncChance);
-    IupSetAttribute(chanceInput, SYNCED_VALUE, (char *)&chance);
+    IupSetAttribute(chanceInput, SYNCED_VALUE, (char*)&chance);
     IupSetCallback(inboundCheckbox, "ACTION", (Icallback)uiSyncToggle);
-    IupSetAttribute(inboundCheckbox, SYNCED_VALUE, (char *)&resetInbound);
+    IupSetAttribute(inboundCheckbox, SYNCED_VALUE, (char*)&resetInbound);
     IupSetCallback(outboundCheckbox, "ACTION", (Icallback)uiSyncToggle);
-    IupSetAttribute(outboundCheckbox, SYNCED_VALUE, (char *)&resetOutbound);
+    IupSetAttribute(outboundCheckbox, SYNCED_VALUE, (char*)&resetOutbound);
     IupSetCallback(rstButton, "ACTION", resetSetRSTNextButtonCb);
     IupSetAttribute(rstButton, "PADDING", "4x");
 
@@ -62,16 +62,16 @@ static void resetStartup() {
     InterlockedExchange16(&setNextCount, 0);
 }
 
-static void resetCloseDown(PacketNode *head, PacketNode *tail) {
+static void resetCloseDown(PacketNode* head, PacketNode* tail) {
     UNREFERENCED_PARAMETER(head);
     UNREFERENCED_PARAMETER(tail);
     LOG("reset disabled");
     InterlockedExchange16(&setNextCount, 0);
 }
 
-static short resetProcess(PacketNode *head, PacketNode *tail) {
+static short resetProcess(PacketNode* head, PacketNode* tail) {
     short reset = FALSE;
-    PacketNode *pac = head->next;
+    PacketNode* pac = head->next;
     while (pac != tail) {
         if (checkDirection(pac->addr.Outbound, resetInbound, resetOutbound) &&
             pac->packetLen > TCP_MIN_SIZE &&
@@ -99,7 +99,7 @@ static short resetProcess(PacketNode *head, PacketNode *tail) {
     return reset;
 }
 
-static int reset_enable(lua_State *L) {
+static int reset_enable(lua_State* L) {
     int type = lua_gettop(L) > 0 ? lua_type(L, -1) : LUA_TNIL;
     switch (type) {
     case LUA_TBOOLEAN:
@@ -122,12 +122,12 @@ static int reset_enable(lua_State *L) {
     return 0;
 }
 
-static void push_lua_functions(lua_State *L) {
+static void push_lua_functions(lua_State* L) {
     lua_pushcfunction(L, reset_enable);
     lua_setfield(L, -2, "enable");
 }
 
-Module resetModule = {"Set TCP RST", NAME, (short *)&resetEnabled, resetSetupUI,
+Module resetModule = {"Set TCP RST", NAME, (short*)&resetEnabled, resetSetupUI,
                       resetStartup, resetCloseDown, resetProcess,
                       // runtime fields
                       0, 0, NULL, push_lua_functions};
