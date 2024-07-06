@@ -46,9 +46,10 @@ std::optional<std::string> WinDivert::start(const std::string& filter) {
         return error;
     }
 
-    WinDivertSetParam(m_divert_handle, WINDIVERT_PARAM_QUEUE_LENGTH, QUEUE_LEN);
+    WinDivertSetParam(m_divert_handle, WINDIVERT_PARAM_QUEUE_LENGTH,
+                      QUEUE_LENGTH);
     WinDivertSetParam(m_divert_handle, WINDIVERT_PARAM_QUEUE_TIME, QUEUE_TIME);
-    LOG("WinDivert internal queue Len: %llu, queue time: %llu", QUEUE_LEN,
+    LOG("WinDivert internal queue length: %llu, queue time: %llu", QUEUE_LEN,
         QUEUE_TIME);
 
     // Initialize modules

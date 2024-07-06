@@ -10,6 +10,10 @@
 #include "module.hpp"
 
 class WinDivert {
+private:
+    static inline size_t QUEUE_LENGTH = 4096;
+    static inline size_t QUEUE_TIME = 100;
+
 public:
     WinDivert();
     ~WinDivert() { stop(); };
