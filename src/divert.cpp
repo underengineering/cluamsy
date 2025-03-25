@@ -9,6 +9,7 @@
 #include "module.hpp"
 #include "packet.hpp"
 
+#include "bandwidth.hpp"
 #include "drop.hpp"
 #include "lag.hpp"
 #include "throttle.hpp"
@@ -21,6 +22,7 @@ WinDivert::WinDivert() {
     m_modules.emplace_back(std::make_shared<LagModule>());
     m_modules.emplace_back(std::make_shared<DropModule>());
     m_modules.emplace_back(std::make_shared<ThrottleModule>());
+    m_modules.emplace_back(std::make_shared<BandwidthModule>());
 }
 
 std::optional<std::string> WinDivert::start(const std::string& filter) {

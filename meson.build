@@ -47,8 +47,8 @@ configure_file(
 )
 
 sources = files(
+  'src/bandwidth.cpp',
   'src/config.cpp',
-  # 'src/bandwidth.cpp',
   'src/divert.cpp',
   'src/drop.cpp',
   # 'src/duplicate.cpp',
@@ -83,4 +83,4 @@ exe = executable(
   cpp_args: ['-DNOMINMAX'],
 )
 
-# test('basic', exe)
+test('basic', exe)
