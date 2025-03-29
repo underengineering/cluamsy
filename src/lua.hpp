@@ -10,16 +10,28 @@
 #include "module.hpp"
 
 class Lua {
+private:
+    struct Script {
+        Lua* lua;
+        std::string file_name;
+    };
+
 public:
     Lua() = delete;
+
     Lua(Lua&& other);
+    Lua& operator=(Lua&& other);
+
     Lua(const std::vector<std::shared_ptr<Module>>& modules);
     ~Lua();
 
     void push_api(const std::vector<std::shared_ptr<Module>>& modules);
 
     lua_State* state() const { return m_lua_state; };
-    bool run_file(const std::string& file_name) const;
+    bool load_script(const std::string& file_name);
+    bool unload_script(const std::string& file_name);
+
+    const std::list<Script>& scripts() const { return m_scripts; }
 
 private:
     void set_registry_ref();
@@ -30,7 +42,7 @@ private:
     void push_timer_api();
     void push_module_api(const Module& module);
 
-public:
+private:
     lua_State* m_lua_state;
 
     struct TimerData {
@@ -38,5 +50,6 @@ public:
         SDL_TimerID timer_id;
     };
 
+    std::list<Script> m_scripts;
     std::list<TimerData> m_timer_data;
 };

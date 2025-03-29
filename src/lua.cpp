@@ -4,11 +4,31 @@
 #include <SDL.h>
 #include <cassert>
 
-#include "common.hpp"
+#include "bandwidth.hpp"
 #include "drop.hpp"
+#include "duplicate.hpp"
 #include "lag.hpp"
-#include "lua.hpp"
 #include "throttle.hpp"
+
+#include "common.hpp"
+#include "lua.hpp"
+
+class RegistryKey {
+public:
+    RegistryKey() = default;
+
+    RegistryKey(const RegistryKey&) = delete;
+    RegistryKey& operator=(const RegistryKey&) = delete;
+
+    RegistryKey(RegistryKey&&) = default;
+    RegistryKey& operator=(RegistryKey&&) = default;
+
+    std::string get() const { return std::format("cluamsy{:d}", m_counter); };
+
+private:
+    static inline size_t s_counter = 0;
+    size_t m_counter = s_counter++;
+};
 
 Lua::Lua(const std::vector<std::shared_ptr<Module>>& modules) {
     LOG("Creating lua state");
@@ -22,10 +42,21 @@ Lua::Lua(const std::vector<std::shared_ptr<Module>>& modules) {
 
 Lua::Lua(Lua&& other)
     : m_lua_state(other.m_lua_state),
-      m_timer_data(std::move(other.m_timer_data)) {
+      m_timer_data(std::move(other.m_timer_data)),
+      m_scripts(std::move(other.m_scripts)) {
     other.m_lua_state = nullptr;
 
     // Update registry pointer
+    set_registry_ref();
+}
+
+Lua& Lua::operator=(Lua&& other) {
+    m_lua_state = other.m_lua_state;
+    m_timer_data = std::move(other.m_timer_data);
+    m_scripts = std::move(other.m_scripts);
+    other.m_lua_state = nullptr;
+
+    // Update registry pointer;
     set_registry_ref();
 }
 
@@ -47,6 +78,8 @@ void Lua::push_api(const std::vector<std::shared_ptr<Module>>& modules) {
     LagModule::lua_setup(L);
     DropModule::lua_setup(L);
     ThrottleModule::lua_setup(L);
+    BandwidthModule::lua_setup(L);
+    DuplicateModule::lua_setup(L);
 
     LOG("Creating modules");
     lua_newtable(L); // cluamsy
@@ -63,7 +96,7 @@ void Lua::push_api(const std::vector<std::shared_ptr<Module>>& modules) {
     lua_setglobal(L, "cluamsy");
 }
 
-bool Lua::run_file(const std::string& file_name) const {
+bool Lua::load_script(const std::string& file_name) {
     LOG("Running file '%s'", file_name.c_str());
 
     const auto status = luaL_loadfile(m_lua_state, file_name.c_str());
@@ -72,10 +105,17 @@ bool Lua::run_file(const std::string& file_name) const {
         return false;
     }
 
-    if (lua_pcall(m_lua_state, 0, 0, 0) != LUA_OK) {
+    if (lua_pcall(m_lua_state, 0, 1, 0) != LUA_OK) {
         LOG("lua_pcall fail: %s", lua_tostring(m_lua_state, -1));
         return false;
     }
+
+    if (!lua_isfunction(m_lua_state, -1)) {
+        LOG("returned value must be a function, ignoring");
+    }
+
+    // Store unregister function
+    m_scripts.emplace_back(Script{this, file_name});
 
     return true;
 }
