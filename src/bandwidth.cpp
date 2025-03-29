@@ -50,6 +50,15 @@ void BandwidthModule::disable() {
     m_rate_stats.reset();
 }
 
+void BandwidthModule::apply_config(const toml::table& config) {
+    Module::apply_config(config);
+
+    m_inbound = config["inbound"].value_or(true);
+    m_outbound = config["outbound"].value_or(true);
+
+    m_limit = std::max(config["limit"].value_or(10), 0);
+}
+
 std::optional<std::chrono::milliseconds> BandwidthModule::process() {
     const auto current_time_point = std::chrono::steady_clock::now();
 

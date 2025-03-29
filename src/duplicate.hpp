@@ -9,10 +9,14 @@ public:
         m_short_name = "Duplicate";
     }
 
+    virtual ~DuplicateModule() = default;
+
     virtual bool draw();
 
     virtual void enable();
     virtual void disable();
+
+    virtual void apply_config(const toml::table& config);
 
     virtual std::optional<std::chrono::milliseconds> process();
 
@@ -56,7 +60,7 @@ private:
         return rets;
     };
 
-public:
+private:
     bool m_inbound = true;
     bool m_outbound = true;
     float m_chance = 10.f;

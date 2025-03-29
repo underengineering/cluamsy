@@ -20,6 +20,9 @@ imgui_dep = dependency(
   default_options: ['sdl2_renderer=enabled'],
 )
 
+tomlplusplus_includes = include_directories('./external/tomlplusplus')
+tomlplusplus_dep = declare_dependency(include_directories: tomlplusplus_includes)
+
 windivert_includes = include_directories('./external/WinDivert-2.2.0-C/include/')
 windivert_dep = declare_dependency(
   dependencies: cxx.find_library(
@@ -74,13 +77,14 @@ exe = executable(
     sdl2_dep,
     sdl2_main_dep,
     opengl_dep,
+    tomlplusplus_dep,
     windivert_dep,
     luajit_dep,
     ws32_dep,
     winmm_dep,
   ],
   override_options: ['cpp_std=c++20'],
-  cpp_args: ['-DNOMINMAX'],
+  cpp_args: ['-DNOMINMAX', '-DTOML_HEADER_ONLY=0'],
 )
 
 test('basic', exe)

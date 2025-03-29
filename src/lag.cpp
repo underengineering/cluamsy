@@ -78,6 +78,17 @@ void LagModule::disable() {
     m_dirty = true;
 }
 
+void LagModule::apply_config(const toml::table& config) {
+    Module::apply_config(config);
+
+    m_inbound = config["inbound"].value_or(true);
+    m_outbound = config["outbound"].value_or(true);
+
+    m_chance = std::clamp(config["chance"].value_or(100.f), 0.f, 100.f);
+    m_lag_time = std::chrono::milliseconds(
+        std::max(config["lag_time"].value_or(200), 0));
+}
+
 std::optional<std::chrono::milliseconds> LagModule::process() {
     const auto current_time_point = std::chrono::steady_clock::now();
     for (auto it = g_packets.begin(); it != g_packets.end();) {

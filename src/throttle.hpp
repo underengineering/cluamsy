@@ -19,10 +19,14 @@ public:
         m_short_name = "Throttle";
     }
 
+    virtual ~ThrottleModule() = default;
+
     virtual bool draw();
 
     virtual void enable();
     virtual void disable();
+
+    virtual void apply_config(const toml::table& config);
 
     virtual std::optional<std::chrono::milliseconds> process();
 

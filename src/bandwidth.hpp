@@ -63,6 +63,8 @@ public:
     virtual void enable();
     virtual void disable();
 
+    virtual void apply_config(const toml::table& config);
+
     virtual std::optional<std::chrono::milliseconds> process();
 
     static void lua_setup(lua_State* L) {
@@ -95,7 +97,7 @@ private:
         return rets;
     };
 
-public:
+private:
     bool m_inbound = true;
     bool m_outbound = true;
     int m_limit = 10;
