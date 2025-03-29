@@ -1,9 +1,7 @@
 #include <optional>
 #include <string>
+#include <toml.hpp>
 #include <unordered_map>
 
-struct Config {
-    std::string filter;
-};
-
-extern std::optional<std::unordered_map<std::string, Config>> parse_config();
+extern std::optional<std::unordered_map<std::string, toml::table>>
+parse_config();

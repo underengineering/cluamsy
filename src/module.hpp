@@ -2,6 +2,7 @@
 
 #include <chrono>
 #include <lua.hpp>
+#include <toml.hpp>
 
 #include "lua_util.hpp"
 
@@ -11,10 +12,16 @@ class Module {
     friend class WinDivert;
 
 public:
+    virtual ~Module() = default;
+
     virtual bool draw() = 0;
 
     virtual void enable() = 0;
     virtual void disable() = 0;
+
+    virtual void apply_config(const toml::table& config) {
+        m_enabled = config["enabled"].value_or(false);
+    };
 
     virtual std::optional<std::chrono::milliseconds> process() = 0;
 

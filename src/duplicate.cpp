@@ -66,6 +66,16 @@ void DuplicateModule::disable() {
     m_dirty = true;
 }
 
+void DuplicateModule::apply_config(const toml::table& config) {
+    Module::apply_config(config);
+
+    m_inbound = config["inbound"].value_or(true);
+    m_outbound = config["outbound"].value_or(true);
+
+    m_chance = std::clamp(config["chance"].value_or(100.f), 0.f, 100.f);
+    m_count = std::max(config["count"].value_or(100), 0);
+}
+
 std::optional<std::chrono::milliseconds> DuplicateModule::process() {
     const auto total_packets = g_packets.size();
     auto duplicated = 0;

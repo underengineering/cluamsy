@@ -67,6 +67,18 @@ void ThrottleModule::disable() {
     flush();
 }
 
+void ThrottleModule::apply_config(const toml::table& config) {
+    Module::apply_config(config);
+
+    m_inbound = config["inbound"].value_or(true);
+    m_outbound = config["outbound"].value_or(true);
+
+    m_chance = std::clamp(config["chance"].value_or(100.f), 0.f, 100.f);
+    m_timeframe_ms = std::chrono::milliseconds(
+        std::max(config["timeframe"].value_or(200), 0));
+    m_drop_throttled = config["drop_throttled"].value_or(false);
+}
+
 void ThrottleModule::flush() {
     LOG("Sending all %zu packets", m_throttle_list.size());
     if (m_drop_throttled)

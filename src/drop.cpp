@@ -58,6 +58,15 @@ void DropModule::disable() {
     m_dirty = true;
 }
 
+void DropModule::apply_config(const toml::table& config) {
+    Module::apply_config(config);
+
+    m_inbound = config["inbound"].value_or(true);
+    m_outbound = config["outbound"].value_or(true);
+
+    m_chance = std::clamp(config["chance"].value_or(100.f), 0.f, 100.f);
+}
+
 std::optional<std::chrono::milliseconds> DropModule::process() {
     int dropped = 0;
     for (auto it = g_packets.begin(); it != g_packets.end();) {

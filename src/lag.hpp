@@ -17,10 +17,14 @@ public:
         m_short_name = "Lag";
     }
 
+    virtual ~LagModule() = default;
+
     virtual bool draw();
 
     virtual void enable();
     virtual void disable();
+
+    virtual void apply_config(const toml::table& config);
 
     virtual std::optional<std::chrono::milliseconds> process();
 
@@ -72,7 +76,7 @@ private:
     bool m_inbound = true;
     bool m_outbound = true;
     float m_chance = 10.f;
-
     std::chrono::milliseconds m_lag_time = 200ms;
+
     std::list<PacketNode> m_lagged_packets;
 };

@@ -8,12 +8,19 @@
 #include <imgui_impl_opengl3.h>
 #include <imgui_impl_sdl2.h>
 #include <imgui_internal.h>
+#include <iostream>
 #include <optional>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <string>
 #include <time.h>
+
+#include "bandwidth.hpp"
+#include "drop.hpp"
+#include "duplicate.hpp"
+#include "lag.hpp"
+#include "throttle.hpp"
 
 #include "common.hpp"
 #include "config.hpp"
@@ -31,7 +38,7 @@ bool InputText(const char* label, std::string* str,
 class Application {
 private:
     Application(SDL_Window* window, SDL_GLContext gl_context,
-                std::unordered_map<std::string, Config> config_entries)
+                std::unordered_map<std::string, toml::table> config_entries)
         : m_config_entries(config_entries), m_lua(m_win_divert.modules()),
           m_window(window), m_gl_context(gl_context) {};
 
@@ -56,7 +63,7 @@ public:
     }
 
     static std::optional<Application>
-    init(std::unordered_map<std::string, Config> config_entries) {
+    init(std::unordered_map<std::string, toml::table> config_entries) {
         SetProcessDPIAware();
 
         SDL_GL_SetAttribute(SDL_GL_CONTEXT_FLAGS, 0);
@@ -195,8 +202,16 @@ public:
             for (const auto& [name, config] : m_config_entries) {
                 if (ImGui::Selectable(name.c_str(),
                                       m_selected_config_entry == name)) {
-                    m_filter = m_config_entries[name].filter;
+                    m_filter = config["filter"].value_or("");
                     m_selected_config_entry = name;
+
+                    for (auto& module : m_win_divert.modules()) {
+                        const auto* module_entry =
+                            config[module->m_short_name].as_table();
+                        if (module_entry) {
+                            module->apply_config(*module_entry);
+                        }
+                    }
 
                     m_dirty = true;
                 }
@@ -248,7 +263,7 @@ private:
     }
 
 private:
-    std::unordered_map<std::string, Config> m_config_entries;
+    std::unordered_map<std::string, toml::table> m_config_entries;
     std::optional<std::string_view> m_selected_config_entry;
 
     WinDivert m_win_divert;
@@ -305,8 +320,8 @@ int main(int argc, char* argv[]) {
     }
 
     auto config_entries = parse_config();
-    auto app = Application::init(
-        config_entries.value_or(std::unordered_map<std::string, Config>()));
+    auto app = Application::init(config_entries.value_or(
+        std::unordered_map<std::string, toml::table>()));
     if (!app)
         return -1;
 
