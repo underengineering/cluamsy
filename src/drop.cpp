@@ -51,7 +51,12 @@ bool DropModule::draw() {
 }
 
 void DropModule::enable() { LOG("Enabling"); }
-void DropModule::disable() { LOG("Disabling"); }
+void DropModule::disable() {
+    LOG("Disabling");
+
+    m_indicator = 0.f;
+    m_dirty = true;
+}
 
 std::optional<std::chrono::milliseconds> DropModule::process() {
     int dropped = 0;

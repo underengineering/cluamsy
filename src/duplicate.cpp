@@ -61,7 +61,9 @@ bool DuplicateModule::draw() {
 void DuplicateModule::enable() { LOG("Enabling"); }
 void DuplicateModule::disable() {
     LOG("Disabling");
+
     m_indicator = 0.f;
+    m_dirty = true;
 }
 
 std::optional<std::chrono::milliseconds> DuplicateModule::process() {

@@ -73,6 +73,9 @@ void LagModule::disable() {
 
     // Send all lagged packets
     g_packets.splice(g_packets.cend(), m_lagged_packets);
+
+    m_indicator = 0.f;
+    m_dirty = true;
 }
 
 std::optional<std::chrono::milliseconds> LagModule::process() {
