@@ -7,6 +7,7 @@
 #include <imgui.h>
 #include <imgui_impl_opengl3.h>
 #include <imgui_impl_sdl2.h>
+#include <imgui_internal.h>
 #include <optional>
 #include <stdio.h>
 #include <stdlib.h>
@@ -89,7 +90,7 @@ public:
 
     bool run() {
         // Run lua script
-        m_lua.run_file("main.lua");
+        m_lua.load_script("main.lua");
 
         SDL_GL_MakeCurrent(m_window, m_gl_context);
         SDL_GL_SetSwapInterval(1);
@@ -213,6 +214,18 @@ public:
         for (const auto& module : m_win_divert.modules()) {
             m_dirty |= module->draw();
         }
+
+        // ImGui::GetCurrentWindow()->GetID("Logs");
+        // ImGui::Dummy({0.f, });
+        //
+        //
+        // // Show logs at the bottom (TODO: docking)
+        // if (ImGui::BeginChild("Logs", {0.f, 0.f},
+        //                       ImGuiChildFlags_Borders |
+        //                           ImGuiChildFlags_ResizeY)) {
+        //     ImGui::LabelText("#lol", "fuck you");
+        // }
+        // ImGui::EndChild();
 
         ImGui::End();
     }
