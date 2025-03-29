@@ -51,7 +51,7 @@ sources = files(
   'src/config.cpp',
   'src/divert.cpp',
   'src/drop.cpp',
-  # 'src/duplicate.cpp',
+  'src/duplicate.cpp',
   # 'src/elevate.cpp',
   'src/lag.cpp',
   # 'src/utils.cpp',
