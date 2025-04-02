@@ -4,7 +4,7 @@
 #include <lua.hpp>
 #include <windivert.h>
 
-#ifdef _DEBUG
+#ifndef NDEBUG
 #define LOG(fmt, ...) fprintf(stderr, __FUNCTION__ ": " fmt "\n", ##__VA_ARGS__)
 #else
 #define LOG(fmt, ...)
