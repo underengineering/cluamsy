@@ -191,8 +191,14 @@ void WinDivert::thread(ThreadData thread_data) {
             if (!GetOverlappedResult(thread_data.divert_handle, &read_overlap,
                                      &read, true)) {
                 const auto error = GetLastError();
+                if (error == ERROR_INVALID_HANDLE ||
+                    error == ERROR_OPERATION_ABORTED) {
+                    LOG("Overlapped read failed: invalid windivert handle");
+                    shutdown = true;
+                    break;
+                }
+
                 LOG("Overlapped read failed: %lu", error);
-                shutdown = true;
                 continue;
             }
 
@@ -278,9 +284,16 @@ void WinDivert::thread(ThreadData thread_data) {
             DWORD write = 0;
             if (!GetOverlappedResult(thread_data.divert_handle, &write_overlap,
                                      &write, true)) {
-                LOG("Overlapped write failed: %lu", GetLastError());
-                shutdown = true;
-                continue;
+                const auto error = GetLastError();
+                if (error == ERROR_INVALID_HANDLE ||
+                    error == ERROR_OPERATION_ABORTED) {
+                    LOG("Overlapped read failed: invalid windivert handle");
+                    shutdown = true;
+                    break;
+                }
+
+                LOG("Overlapped write failed: %lu", error);
+                break;
             }
 
             // LOG("Wrote %lu bytes, pending %zu", write, g_packets.size());
@@ -288,6 +301,11 @@ void WinDivert::thread(ThreadData thread_data) {
             if (!g_packets.empty())
                 stage_write();
 
+            break;
+        }
+        case WAIT_FAILED: {
+            LOG("WaitForMultipleObjects failed: %lu", GetLastError());
+            shutdown = true;
             break;
         }
         }
