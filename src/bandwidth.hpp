@@ -27,7 +27,8 @@ public:
             std::chrono::duration<double>(now_ts - m_last_ts).count();
 
         // Replenish tokens based on elapsed time
-        m_tokens += elapsed_seconds * replenish_rate;
+        m_tokens += static_cast<size_t>(elapsed_seconds *
+                                        static_cast<float>(replenish_rate));
         if (m_tokens > m_max_tokens)
             m_tokens = m_max_tokens;
     }
@@ -45,7 +46,7 @@ public:
 
 private:
     size_t m_max_tokens;
-    size_t m_tokens;
+    size_t m_tokens = 0;
     std::chrono::steady_clock::time_point m_last_ts;
 };
 
@@ -58,14 +59,14 @@ public:
         m_short_name = "Bandwidth";
     }
 
-    virtual bool draw();
+    bool draw() override;
 
-    virtual void enable();
-    virtual void disable();
+    void enable() override;
+    void disable() override;
 
-    virtual void apply_config(const toml::table& config);
+    void apply_config(const toml::table& config) override;
 
-    virtual std::optional<std::chrono::milliseconds> process();
+    std::optional<std::chrono::milliseconds> process() override;
 
     static void lua_setup(lua_State* L) {
         luaL_Reg methods[] = {

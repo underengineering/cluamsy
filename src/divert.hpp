@@ -3,7 +3,6 @@
 #define WIN32_LEAN_AND_MEAN
 #include <Windows.h>
 
-#include <mutex>
 #include <optional>
 #include <thread>
 
@@ -18,12 +17,18 @@ public:
 
 public:
     WinDivert();
+
+    WinDivert(const WinDivert&) = delete;
+    WinDivert(WinDivert&&) = delete;
+    WinDivert& operator=(const WinDivert&) = delete;
+    WinDivert& operator=(WinDivert&&) = delete;
+
     ~WinDivert() { stop(); };
 
     std::optional<std::string> start(const std::string& filter);
     bool stop();
 
-    const std::vector<std::shared_ptr<Module>>& modules() const {
+    [[nodiscard]] const std::vector<std::shared_ptr<Module>>& modules() const {
         return m_modules;
     }
 
@@ -41,5 +46,3 @@ private:
     std::thread m_thread;
     HANDLE m_divert_handle = nullptr;
 };
-
-int divertStart(const char* filter, char buf[]);

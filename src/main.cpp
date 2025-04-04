@@ -8,19 +8,8 @@
 #include <imgui_impl_opengl3.h>
 #include <imgui_impl_sdl2.h>
 #include <imgui_internal.h>
-#include <iostream>
 #include <optional>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
 #include <string>
-#include <time.h>
-
-#include "bandwidth.hpp"
-#include "drop.hpp"
-#include "duplicate.hpp"
-#include "lag.hpp"
-#include "throttle.hpp"
 
 #include "common.hpp"
 #include "config.hpp"
@@ -37,13 +26,14 @@ bool InputText(const char* label, std::string* str,
 
 class Application {
 private:
-    Application(SDL_Window* window, SDL_GLContext gl_context,
-                std::unordered_map<std::string, toml::table> config_entries)
-        : m_config_entries(config_entries), m_lua(m_win_divert.modules()),
-          m_window(window), m_gl_context(gl_context) {};
+    Application(
+        SDL_Window* window, SDL_GLContext gl_context,
+        const std::unordered_map<std::string, toml::table>& config_entries)
+        : m_config_entries(config_entries), m_window(window),
+          m_gl_context(gl_context) {};
 
 public:
-    Application(Application&& other)
+    Application(Application&& other) noexcept
         : m_config_entries(std::move(other.m_config_entries)),
           m_lua(std::move(other.m_lua)), m_window(other.m_window),
           m_gl_context(other.m_gl_context) {
@@ -61,6 +51,10 @@ public:
         if (m_window)
             SDL_DestroyWindow(m_window);
     }
+
+    Application(const Application&) = delete;
+    Application& operator=(const Application&) = delete;
+    Application& operator=(Application&&) = delete;
 
     static std::optional<Application>
     init(std::unordered_map<std::string, toml::table> config_entries) {
@@ -119,7 +113,7 @@ public:
 
         {
             // Query default monitor resolution
-            float ddpi, hdpi, vdpi;
+            float ddpi = 0.f, hdpi = 0.f, vdpi = 0.f;
             if (SDL_GetDisplayDPI(0, &ddpi, &hdpi, &vdpi) != 0) {
                 LOG("Failed to obtain DPI information for display 0: %s",
                     SDL_GetError());
@@ -285,9 +279,9 @@ static bool check_is_running() {
     // It will be closed and destroyed when programm terminates (according to
     // MSDN).
     const auto event_handle = CreateEventW(
-        NULL, FALSE, FALSE, L"Global\\CLUMSY_IS_RUNNING_EVENT_NAME");
+        nullptr, false, false, L"Global\\CLUMSY_IS_RUNNING_EVENT_NAME");
 
-    if (event_handle == NULL)
+    if (event_handle == nullptr)
         return true;
 
     if (GetLastError() == ERROR_ALREADY_EXISTS) {

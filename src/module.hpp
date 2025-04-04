@@ -6,12 +6,17 @@
 
 #include "lua_util.hpp"
 
-#include "common.hpp"
-
 class Module {
     friend class WinDivert;
 
 public:
+    Module() = default;
+
+    Module(const Module&) = default;
+    Module(Module&&) = delete;
+    Module& operator=(const Module&) = default;
+    Module& operator=(Module&&) = delete;
+
     virtual ~Module() = default;
 
     virtual bool draw() = 0;
@@ -49,8 +54,8 @@ private:
 
 public:
     // Static module data
-    const char* m_display_name; // display name shown in ui
-    const char* m_short_name;   // single word name
+    const char* m_display_name = nullptr; // display name shown in ui
+    const char* m_short_name = nullptr;   // single word name
     bool m_enabled = false;
     float m_indicator = 0.f;
     // Should rerender

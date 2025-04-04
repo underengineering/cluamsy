@@ -94,7 +94,8 @@ std::optional<std::chrono::milliseconds> DuplicateModule::process() {
         }
     }
 
-    m_indicator = static_cast<float>(duplicated) / total_packets;
+    m_indicator =
+        static_cast<float>(duplicated) / static_cast<float>(total_packets);
     m_dirty = true;
 
     return std::nullopt;

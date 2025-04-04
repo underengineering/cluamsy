@@ -2,7 +2,6 @@
 
 #include <chrono>
 #include <list>
-#include <vector>
 
 #include <windivert.h>
 
