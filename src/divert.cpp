@@ -68,8 +68,10 @@ std::optional<std::string> WinDivert::start(const std::string& filter) {
 
     LOG("Starting threads");
 
+    m_stop_event_handle = CreateEvent(nullptr, false, false, nullptr);
     ThreadData thread_data = {
         .divert_handle = m_divert_handle,
+        .stop_event_handle = m_stop_event_handle,
         .modules = m_modules,
     };
 
@@ -83,17 +85,22 @@ bool WinDivert::stop() {
         return false;
 
     LOG("Stopping");
+
+    SetEvent(m_stop_event_handle);
+
+    LOG("Waiting for the windivert thread");
+    m_thread.join();
+
     const auto success = WinDivertClose(m_divert_handle);
     assert(success);
 
     m_divert_handle = nullptr;
 
-    LOG("Waiting for the windivert thread");
-    m_thread.join();
+    CloseHandle(m_stop_event_handle);
+    m_stop_event_handle = nullptr;
 
     // Write thread should've sent all packets already
-    // TODO:
-    // assert(g_packets.empty());
+    assert(g_packets.empty());
 
     // Run post-disable module cleanups
     for (auto& module : m_modules) {
@@ -176,14 +183,19 @@ void WinDivert::thread(ThreadData thread_data) {
     };
 
     std::optional<std::chrono::milliseconds> wait_timeout;
-    const std::array<HANDLE, 2> events{write_event_handle, read_event_handle};
+    const std::array<HANDLE, 3> events{
+        write_event_handle,
+        read_event_handle,
+        thread_data.stop_event_handle,
+    };
+    auto should_stop = false;
     while (true) {
         const auto res = WaitForMultipleObjects(
             events.size(), events.data(), false,
             wait_timeout ? wait_timeout->count() : INFINITE);
         wait_timeout = std::nullopt;
 
-        auto shutdown = false;
+        auto stop = false;
         switch (res) {
         // READ
         case WAIT_OBJECT_0 + 1: {
@@ -194,7 +206,7 @@ void WinDivert::thread(ThreadData thread_data) {
                 if (error == ERROR_INVALID_HANDLE ||
                     error == ERROR_OPERATION_ABORTED) {
                     LOG("Overlapped read failed: invalid windivert handle");
-                    shutdown = true;
+                    stop = true;
                     break;
                 }
 
@@ -288,7 +300,7 @@ void WinDivert::thread(ThreadData thread_data) {
                 if (error == ERROR_INVALID_HANDLE ||
                     error == ERROR_OPERATION_ABORTED) {
                     LOG("Overlapped read failed: invalid windivert handle");
-                    shutdown = true;
+                    stop = true;
                     break;
                 }
 
@@ -297,20 +309,31 @@ void WinDivert::thread(ThreadData thread_data) {
             }
 
             // LOG("Wrote %lu bytes, pending %zu", write, g_packets.size());
+
+            if (g_packets.empty() && should_stop) {
+                LOG("Stopping");
+                stop = true;
+                break;
+            }
+
             pending_write = std::nullopt;
             if (!g_packets.empty())
                 stage_write();
 
             break;
         }
+        // STOP
+        case WAIT_OBJECT_0 + 2:
+            should_stop = true;
+            break;
         case WAIT_FAILED: {
             LOG("WaitForMultipleObjects failed: %lu", GetLastError());
-            shutdown = true;
+            stop = true;
             break;
         }
         }
 
-        if (shutdown)
+        if (stop)
             break;
     }
 

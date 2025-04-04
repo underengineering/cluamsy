@@ -35,6 +35,7 @@ public:
 private:
     struct ThreadData {
         HANDLE divert_handle;
+        HANDLE stop_event_handle;
         const std::vector<std::shared_ptr<Module>>& modules;
     };
 
@@ -45,4 +46,5 @@ private:
 
     std::thread m_thread;
     HANDLE m_divert_handle = nullptr;
+    HANDLE m_stop_event_handle = nullptr;
 };
