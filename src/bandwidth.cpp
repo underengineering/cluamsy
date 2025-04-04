@@ -62,7 +62,7 @@ void BandwidthModule::apply_config(const toml::table& config) {
 std::optional<std::chrono::milliseconds> BandwidthModule::process() {
     const auto current_time_point = std::chrono::steady_clock::now();
 
-    //	allow 0 limit which should drop all
+    // allow 0 limit which should drop all
     if (m_limit < 0)
         return std::nullopt;
 
@@ -89,7 +89,8 @@ std::optional<std::chrono::milliseconds> BandwidthModule::process() {
         }
     }
 
-    m_indicator = static_cast<float>(dropped) / total_packets;
+    m_indicator =
+        static_cast<float>(dropped) / static_cast<float>(total_packets);
     m_dirty = true;
 
     return std::nullopt;

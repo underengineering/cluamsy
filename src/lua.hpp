@@ -17,21 +17,25 @@ private:
     };
 
 public:
-    Lua() = delete;
+    Lua() noexcept;
 
-    Lua(Lua&& other);
-    Lua& operator=(Lua&& other);
+    Lua(const Lua&) = delete;
+    Lua& operator=(const Lua&) = delete;
 
-    Lua(const std::vector<std::shared_ptr<Module>>& modules);
+    Lua(Lua&& other) noexcept;
+    Lua& operator=(Lua&& other) noexcept;
+
     ~Lua();
 
     void push_api(const std::vector<std::shared_ptr<Module>>& modules);
 
-    lua_State* state() const { return m_lua_state; };
+    [[nodiscard]] lua_State* state() const noexcept { return m_lua_state; };
     bool load_script(const std::string& file_name);
     bool unload_script(const std::string& file_name);
 
-    const std::list<Script>& scripts() const { return m_scripts; }
+    [[nodiscard]] const std::list<Script>& scripts() const noexcept {
+        return m_scripts;
+    }
 
 private:
     void set_registry_ref();

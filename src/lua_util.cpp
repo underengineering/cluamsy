@@ -1,7 +1,7 @@
 #include <lua.hpp>
 
 int lua_getset(lua_State* L, bool& value, int idx) {
-    int type;
+    int type = 0;
     switch ((type = lua_type(L, idx))) {
     case LUA_TNONE:
     case LUA_TNIL:
@@ -17,7 +17,7 @@ int lua_getset(lua_State* L, bool& value, int idx) {
 }
 
 int lua_getset(lua_State* L, float& value, int idx) {
-    int type;
+    int type = 0;
     switch ((type = lua_type(L, idx))) {
     case LUA_TNONE:
     case LUA_TNIL:
@@ -34,7 +34,7 @@ int lua_getset(lua_State* L, float& value, int idx) {
 }
 
 int lua_getset(lua_State* L, int& value, int idx) {
-    int type;
+    int type = 0;
     switch ((type = lua_type(L, idx))) {
     case LUA_TNONE:
     case LUA_TNIL:

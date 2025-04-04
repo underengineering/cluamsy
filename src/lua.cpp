@@ -23,14 +23,18 @@ public:
     RegistryKey(RegistryKey&&) = default;
     RegistryKey& operator=(RegistryKey&&) = default;
 
-    std::string get() const { return std::format("cluamsy{:d}", m_counter); };
+    ~RegistryKey() = default;
+
+    [[nodiscard]] std::string get() const {
+        return std::format("cluamsy{:d}", m_counter);
+    };
 
 private:
     static inline size_t s_counter = 0;
     size_t m_counter = s_counter++;
 };
 
-Lua::Lua(const std::vector<std::shared_ptr<Module>>& modules) {
+Lua::Lua() noexcept {
     LOG("Creating lua state");
 
     lua_State* L = m_lua_state = luaL_newstate();
@@ -40,17 +44,16 @@ Lua::Lua(const std::vector<std::shared_ptr<Module>>& modules) {
     set_registry_ref();
 }
 
-Lua::Lua(Lua&& other)
-    : m_lua_state(other.m_lua_state),
-      m_timer_data(std::move(other.m_timer_data)),
-      m_scripts(std::move(other.m_scripts)) {
+Lua::Lua(Lua&& other) noexcept
+    : m_lua_state(other.m_lua_state), m_scripts(std::move(other.m_scripts)),
+      m_timer_data(std::move(other.m_timer_data)) {
     other.m_lua_state = nullptr;
 
     // Update registry pointer
     set_registry_ref();
 }
 
-Lua& Lua::operator=(Lua&& other) {
+Lua& Lua::operator=(Lua&& other) noexcept {
     m_lua_state = other.m_lua_state;
     m_timer_data = std::move(other.m_timer_data);
     m_scripts = std::move(other.m_scripts);
@@ -58,6 +61,8 @@ Lua& Lua::operator=(Lua&& other) {
 
     // Update registry pointer;
     set_registry_ref();
+
+    return *this;
 }
 
 Lua::~Lua() {

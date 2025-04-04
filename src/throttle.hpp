@@ -21,14 +21,14 @@ public:
 
     virtual ~ThrottleModule() = default;
 
-    virtual bool draw();
+    bool draw() override;
 
-    virtual void enable();
-    virtual void disable();
+    void enable() override;
+    void disable() override;
 
-    virtual void apply_config(const toml::table& config);
+    void apply_config(const toml::table& config) override;
 
-    virtual std::optional<std::chrono::milliseconds> process();
+    std::optional<std::chrono::milliseconds> process() override;
 
 private:
     void flush();

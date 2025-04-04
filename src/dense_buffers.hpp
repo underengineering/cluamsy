@@ -20,13 +20,18 @@ public:
         return m_buffer == other.m_buffer;
     }
 
-    const std::shared_ptr<std::vector<char>>& buffer() const noexcept {
+    ~DenseBufferArraySlice() = default;
+
+    [[nodiscard]] const std::shared_ptr<std::vector<char>>&
+    buffer() const noexcept {
         return m_buffer;
     }
 
-    const char* data() const noexcept { return m_buffer->data() + m_offset; }
-    size_t size() const noexcept { return m_size; }
-    size_t offset() const noexcept { return m_offset; }
+    [[nodiscard]] const char* data() const noexcept {
+        return m_buffer->data() + m_offset;
+    }
+    [[nodiscard]] size_t size() const noexcept { return m_size; }
+    [[nodiscard]] size_t offset() const noexcept { return m_offset; }
 
 private:
     std::shared_ptr<std::vector<char>> m_buffer;
@@ -49,12 +54,16 @@ public:
     DenseBufferArray(DenseBufferArray&& other) = default;
     DenseBufferArray& operator=(DenseBufferArray&& other) = default;
 
-    const std::shared_ptr<std::vector<char>>& buffer() const noexcept {
+    ~DenseBufferArray() = default;
+
+    [[nodiscard]] const std::shared_ptr<std::vector<char>>&
+    buffer() const noexcept {
         return m_buffer;
     }
 
-    DenseBufferArraySlice slice(size_t offset, size_t size) const noexcept {
-        return DenseBufferArraySlice(m_buffer, offset, size);
+    [[nodiscard]] DenseBufferArraySlice slice(size_t offset,
+                                              size_t size) const noexcept {
+        return {m_buffer, offset, size};
     }
 
 private:
