@@ -221,7 +221,8 @@ void WinDivert::thread(ThreadData thread_data) {
                 } else {
                     const auto* const ipv6hdr =
                         std::bit_cast<PWINDIVERT_IPV6HDR>(data + offset);
-                    packet_size = htons(ipv6hdr->Length);
+                    packet_size =
+                        htons(ipv6hdr->Length) + sizeof(WINDIVERT_IPV6HDR);
                     // LOG("pkt6 id %i ttl %i size %d", ipv6hdr->FlowLabel0,
                     //     ipv6hdr->HopLimit, packet_size);
                 }
