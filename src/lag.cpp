@@ -91,9 +91,9 @@ void LagModule::apply_config(const toml::table& config) {
 
 std::optional<std::chrono::milliseconds> LagModule::process() {
     const auto current_time_point = std::chrono::steady_clock::now();
-    for (auto it = g_packets.begin(); it != g_packets.end();) {
+    for (auto it = g_packets.cbegin(); it != g_packets.cend();) {
         const auto itCopy = it++;
-        const auto packet = *itCopy;
+        const auto& packet = *itCopy;
         if (check_direction(packet.addr.Outbound, m_inbound, m_outbound) &&
             check_chance(m_chance)) {
             m_lagged_packets.splice(m_lagged_packets.cend(), g_packets, itCopy);
@@ -102,9 +102,9 @@ std::optional<std::chrono::milliseconds> LagModule::process() {
 
     // Try sending overdue packets
     std::optional<std::chrono::milliseconds> schedule_after = std::nullopt;
-    for (auto it = m_lagged_packets.begin(); it != m_lagged_packets.end();) {
+    for (auto it = m_lagged_packets.cbegin(); it != m_lagged_packets.cend();) {
         const auto itCopy = it++;
-        const auto packet = *itCopy;
+        const auto& packet = *itCopy;
 
         if (current_time_point > packet.captured_at + m_lag_time) {
             g_packets.splice(g_packets.cend(), m_lagged_packets, itCopy);

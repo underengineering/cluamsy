@@ -1,3 +1,5 @@
+#include <array>
+#include <bit>
 #include <cassert>
 #include <chrono>
 #include <memory.h>
@@ -5,6 +7,7 @@
 #include <windivert.h>
 
 #include "common.hpp"
+#include "dense_buffers.hpp"
 #include "divert.hpp"
 #include "module.hpp"
 #include "packet.hpp"
@@ -17,7 +20,6 @@
 
 static constexpr INT16 DIVERT_PRIORITY = 0;
 static constexpr UINT64 QUEUE_LEN = 2 << 10;
-static constexpr UINT64 QUEUE_TIME = 2 << 9;
 
 WinDivert::WinDivert() {
     m_modules.emplace_back(std::make_shared<LagModule>());
@@ -69,14 +71,9 @@ std::optional<std::string> WinDivert::start(const std::string& filter) {
     ThreadData thread_data = {
         .divert_handle = m_divert_handle,
         .modules = m_modules,
-
-        .packets_mutex = m_packets_mutex,
-        .packets_condvar = m_packets_condvar,
-        .stop = m_stop,
     };
 
-    m_read_thread = std::thread(read_thread, thread_data);
-    m_write_thread = std::thread(write_thread, thread_data);
+    m_thread = std::thread(thread, thread_data);
 
     return std::nullopt;
 }
@@ -91,23 +88,12 @@ bool WinDivert::stop() {
 
     m_divert_handle = nullptr;
 
-    LOG("Waiting for read thread");
-    m_read_thread.join();
-
-    // Notify write thread about shutdown
-    {
-        std::unique_lock lock(m_packets_mutex);
-        m_stop = true;
-        m_packets_condvar.notify_one();
-    }
-
-    LOG("Waiting for write thread");
-    m_write_thread.join();
-
-    m_stop = false;
+    LOG("Waiting for the windivert thread");
+    m_thread.join();
 
     // Write thread should've sent all packets already
-    assert(g_packets.empty());
+    // TODO:
+    // assert(g_packets.empty());
 
     // Run post-disable module cleanups
     for (auto& module : m_modules) {
@@ -115,107 +101,200 @@ bool WinDivert::stop() {
             module->disable();
     }
 
+    LOG("WinDivert stopped");
+
     return true;
 }
 
-void WinDivert::read_thread(ThreadData thread_data) {
-    while (true) {
-        // Allocate a packet
-        std::vector<char> packet(WINDIVERT_MTU_MAX);
+struct PendingWrite {
+    // Strong reference to the buffer being send
+    std::optional<DenseBufferArray> buffer;
+    std::array<WINDIVERT_ADDRESS, WinDivert::MAX_PACKETS> addresses;
+};
 
-        UINT read;
-        WINDIVERT_ADDRESS address;
-        if (!WinDivertRecv(thread_data.divert_handle, packet.data(),
-                           static_cast<UINT>(packet.size()), &read, &address)) {
-            auto last_error = GetLastError();
-            if (last_error == ERROR_INVALID_HANDLE ||
-                last_error == ERROR_OPERATION_ABORTED) {
-                // treat closing handle as quit
-                LOG("Handle died or operation aborted. Exit loop.");
-                return;
-            }
+void WinDivert::thread(ThreadData thread_data) {
+    auto read_event_handle = CreateEvent(nullptr, false, false, nullptr);
+    auto write_event_handle = CreateEvent(nullptr, false, false, nullptr);
 
-            LOG("Failed to recv a packet (%lu)", last_error);
-            continue;
+    OVERLAPPED read_overlap{};
+    read_overlap.hEvent = read_event_handle;
+
+    OVERLAPPED write_overlap{};
+    write_overlap.hEvent = write_event_handle;
+
+    std::optional<PendingWrite> pending_write;
+
+    // Start reading
+    auto dense_buffer = std::make_shared<std::vector<char>>(BUFFER_SIZE);
+    std::array<WINDIVERT_ADDRESS, MAX_PACKETS> read_addresses{};
+    UINT read_addresses_length = sizeof(read_addresses);
+    WinDivertRecvEx(thread_data.divert_handle, dense_buffer->data(),
+                    dense_buffer->size(), nullptr, 0, read_addresses.data(),
+                    &read_addresses_length, &read_overlap);
+
+    const auto stage_write = [&] {
+        pending_write = PendingWrite{
+            .buffer = std::nullopt,
+            .addresses = {},
+        };
+
+        // Find biggest contiguous dense buffer slice
+        auto it = g_packets.cbegin();
+        const auto& first_slice = it->packet;
+        auto contiguous_slice_offset = first_slice.offset();
+        size_t write_packet_count = 0;
+        for (; it != g_packets.cend(); ++it, write_packet_count++) {
+            const auto& slice = it->packet;
+
+            // Check for buffer equality
+            if (slice != first_slice)
+                break;
+
+            // Check if there is an hole
+            if (contiguous_slice_offset != slice.offset())
+                break;
+
+            pending_write->addresses[write_packet_count] = it->addr;
+            contiguous_slice_offset += slice.size();
         }
 
-        packet.resize(read);
-        packet.shrink_to_fit();
+        // Write
+        pending_write->buffer = DenseBufferArray(first_slice.buffer());
 
-        // Insert received packet into the packet queue
-        {
-            std::unique_lock lock(thread_data.packets_mutex);
-
-            g_packets.emplace_back<PacketNode>({
-                .packet = std::move(packet),
-                .addr = address,
-                .captured_at = std::chrono::steady_clock::now(),
-            });
-
-            // Notify write thread
-            thread_data.packets_condvar.notify_one();
-        }
-    }
-}
-
-void WinDivert::write_thread(ThreadData thread_data) {
-    std::optional<std::chrono::milliseconds> wait_timeout;
-    const auto wait_predicate = [&thread_data] {
-        return !g_packets.empty() || thread_data.stop;
+        const auto* buffer_data =
+            first_slice.buffer()->data() + first_slice.offset();
+        const auto buffer_size = contiguous_slice_offset - first_slice.offset();
+        // LOG("Writing %zu/%zu packets at once, slice_offset=%zu "
+        //     "buffer_offset=%zu size=%zu",
+        //     write_packet_count, g_packets.size(), first_slice.offset(),
+        //     contiguous_slice_offset, buffer_size);
+        WinDivertSendEx(thread_data.divert_handle, buffer_data, buffer_size,
+                        nullptr, 0, pending_write->addresses.data(),
+                        write_packet_count * sizeof(WINDIVERT_ADDRESS),
+                        &write_overlap);
+        g_packets.erase(g_packets.cbegin(), it);
     };
 
+    std::optional<std::chrono::milliseconds> wait_timeout;
+    const std::array<HANDLE, 2> events{write_event_handle, read_event_handle};
     while (true) {
-        // Wait for packets
-        std::unique_lock lock(thread_data.packets_mutex);
-        if (wait_timeout) {
-            thread_data.packets_condvar.wait_for(lock, *wait_timeout,
-                                                 wait_predicate);
-            wait_timeout = std::nullopt;
-        } else {
-            thread_data.packets_condvar.wait(lock, wait_predicate);
-        }
+        const auto res = WaitForMultipleObjects(
+            events.size(), events.data(), false,
+            wait_timeout ? wait_timeout->count() : INFINITE);
+        wait_timeout = std::nullopt;
 
-        if (thread_data.stop) {
-            LOG("Stopping");
+        auto shutdown = false;
+        switch (res) {
+        // READ
+        case WAIT_OBJECT_0 + 1: {
+            DWORD read = 0;
+            if (!GetOverlappedResult(thread_data.divert_handle, &read_overlap,
+                                     &read, true)) {
+                const auto error = GetLastError();
+                LOG("Overlapped read failed: %lu", error);
+                shutdown = true;
+                continue;
+            }
+
+            // Convert to dense buffer array
+            dense_buffer->resize(read);
+
+            DenseBufferArray dense_buffers(std::move(dense_buffer));
+            dense_buffer = std::make_shared<std::vector<char>>(
+                BUFFER_SIZE); // Allocate a new buffer
+            // LOG("new packets buf size %zu", BUFFER_SIZE);
+
+            const auto* const data = dense_buffers.buffer()->data();
+            const auto packet_count =
+                read_addresses_length / sizeof(WINDIVERT_ADDRESS);
+            size_t offset = 0;
+            const auto current_timestamp = std::chrono::steady_clock::now();
+            for (size_t i = 0; i < packet_count; i++) {
+                const auto* const iphdr =
+                    std::bit_cast<PWINDIVERT_IPHDR>(data + offset);
+
+                uint16_t packet_size = 0;
+                if (iphdr->Version == 4) {
+                    packet_size = ntohs(iphdr->Length);
+                    // LOG("pkt id %i ttl %i size %i", iphdr->Id, iphdr->TTL,
+                    //     packet_size);
+                } else {
+                    const auto* const ipv6hdr =
+                        std::bit_cast<PWINDIVERT_IPV6HDR>(data + offset);
+                    packet_size = htons(ipv6hdr->Length);
+                    // LOG("pkt6 id %i ttl %i size %d", ipv6hdr->FlowLabel0,
+                    //     ipv6hdr->HopLimit, packet_size);
+                }
+
+                g_packets.emplace_back(PacketNode{
+                    .packet = dense_buffers.slice(offset, packet_size),
+                    .addr = read_addresses[i],
+                    .captured_at = current_timestamp,
+                });
+
+                offset += packet_size;
+            }
+
+            // Read again
+            read_addresses_length = sizeof(read_addresses);
+            WinDivertRecvEx(thread_data.divert_handle, dense_buffer->data(),
+                            dense_buffer->size(), nullptr, 0,
+                            read_addresses.data(), &read_addresses_length,
+                            &read_overlap);
+
+            [[fallthrough]];
+        }
+        case WAIT_TIMEOUT: {
+            // Run modules
+            for (const auto& module : thread_data.modules) {
+                if (module->m_enabled) {
+                    // Initialize it if it wasn't
+                    if (!module->m_was_enabled) {
+                        module->enable();
+                        module->m_was_enabled = true;
+                    }
+
+                    const auto schedule_after = module->process();
+                    if (schedule_after && wait_timeout) {
+                        wait_timeout = std::chrono::milliseconds(std::min(
+                            wait_timeout->count(), schedule_after->count()));
+                    } else if (schedule_after) {
+                        wait_timeout = schedule_after;
+                    }
+                } else if (module->m_was_enabled) {
+                    module->disable();
+                    module->m_was_enabled = false;
+                }
+            }
+
+            if (!pending_write && !g_packets.empty())
+                stage_write();
+
             break;
         }
-
-        // Run modules
-        for (const auto& module : thread_data.modules) {
-            if (module->m_enabled) {
-                // Initialize it if it wasn't
-                if (!module->m_was_enabled) {
-                    module->enable();
-                    module->m_was_enabled = true;
-                }
-
-                const auto schedule_after = module->process();
-                if (schedule_after && wait_timeout) {
-                    wait_timeout = std::chrono::milliseconds(std::min(
-                        wait_timeout->count(), schedule_after->count()));
-                } else if (schedule_after) {
-                    wait_timeout = schedule_after;
-                }
-            } else if (module->m_was_enabled) {
-                module->disable();
-                module->m_was_enabled = false;
-            }
-        }
-
-        // Send all packets
-        for (auto it = g_packets.begin(); it != g_packets.end();) {
-            const auto& packet = *it;
-
-            UINT send;
-            if (!WinDivertSend(thread_data.divert_handle, packet.packet.data(),
-                               static_cast<UINT>(packet.packet.size()), &send,
-                               &packet.addr)) {
-                LOG("Failed to send a packet (%lu)", GetLastError());
-            } else if (send < packet.packet.size()) {
-                LOG("IT HAPPENED");
+        // WRITE
+        case WAIT_OBJECT_0: {
+            DWORD write = 0;
+            if (!GetOverlappedResult(thread_data.divert_handle, &write_overlap,
+                                     &write, true)) {
+                LOG("Overlapped write failed: %lu", GetLastError());
+                shutdown = true;
+                continue;
             }
 
-            g_packets.erase(it++);
+            // LOG("Wrote %lu bytes, pending %zu", write, g_packets.size());
+            pending_write = std::nullopt;
+            if (!g_packets.empty())
+                stage_write();
+
+            break;
         }
+        }
+
+        if (shutdown)
+            break;
     }
+
+    CloseHandle(read_event_handle);
+    CloseHandle(write_event_handle);
 }
