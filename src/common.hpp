@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdlib>
+#include <limits>
 #include <lua.hpp>
 #include <windivert.h>
 
@@ -19,6 +20,12 @@ inline bool check_direction(bool outbound_packet, bool handle_inbound,
                             bool handle_outbound) {
     return (handle_inbound && !outbound_packet) ||
            (handle_outbound && outbound_packet);
+}
+
+constexpr inline bool
+almost_equal(float a, float b,
+             float epsilon = std::numeric_limits<float>::epsilon()) {
+    return std::abs(a - b) < epsilon;
 }
 
 // elevate
