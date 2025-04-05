@@ -93,8 +93,12 @@ DuplicateModule::Result DuplicateModule::process() {
         }
     }
 
-    m_indicator =
+    const auto indicator =
         static_cast<float>(duplicated) / static_cast<float>(total_packets);
+    if (!almost_equal(indicator, m_indicator)) {
+        m_indicator = indicator;
+        return {.dirty = true};
+    }
 
-    return {.dirty = true};
+    return {};
 }
