@@ -10,6 +10,12 @@ class Module {
     friend class WinDivert;
 
 public:
+    struct Result {
+        std::optional<std::chrono::milliseconds> schedule_after = std::nullopt;
+        bool dirty = false;
+    };
+
+public:
     Module() = default;
 
     Module(const Module&) = default;
@@ -28,7 +34,7 @@ public:
         m_enabled = config["enabled"].value_or(false);
     };
 
-    virtual std::optional<std::chrono::milliseconds> process() = 0;
+    virtual Result process() = 0;
 
     static void lua_setup(lua_State* L) {
         luaL_newmetatable(L, "Module");
@@ -46,8 +52,6 @@ private:
     static int lua_method_enabled(lua_State* L) {
         auto* module = *std::bit_cast<Module**>(lua_touserdata(L, 1));
         const auto rets = lua_getset(L, module->m_enabled, 2);
-        if (rets == 0)
-            module->m_dirty = true;
 
         return rets;
     };
@@ -58,8 +62,6 @@ public:
     const char* m_short_name = nullptr;   // single word name
     bool m_enabled = false;
     float m_indicator = 0.f;
-    // Should rerender
-    bool m_dirty = false;
 
 private:
     // Checked in `WinDivert`

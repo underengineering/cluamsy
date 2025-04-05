@@ -1,3 +1,4 @@
+#include "events.hpp"
 #define WIN32_LEAN_AND_MEAN
 #include <Windows.h>
 
@@ -129,32 +130,25 @@ public:
         // Run the main loop
         while (true) {
             SDL_Event event;
-            if (SDL_PollEvent(&event) <= 0) {
-                SDL_Delay(10);
+            while (SDL_PollEvent(&event)) {
+                if (event.type == SDL_QUIT)
+                    break;
 
-                // Check if modules need to be rerendered
-                bool modules_dirty = false;
-                for (auto& module : m_win_divert.modules()) {
-                    modules_dirty |= module->m_dirty;
-                    module->m_dirty = false;
-                }
-
-                if (!m_dirty && !modules_dirty)
-                    continue;
-
-                m_dirty = false;
+                ImGui_ImplSDL2_ProcessEvent(&event);
             }
 
             if (event.type == SDL_QUIT)
                 break;
 
-            ImGui_ImplSDL2_ProcessEvent(&event);
-
             ImGui_ImplOpenGL3_NewFrame();
             ImGui_ImplSDL2_NewFrame();
             ImGui::NewFrame();
 
-            draw();
+            if (draw()) {
+                // Redraw on the next frame if state has changed
+                SDL_Event event{events::REDRAW};
+                SDL_PushEvent(&event);
+            }
 
             ImGui::Render();
 
@@ -165,13 +159,15 @@ public:
             ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 
             SDL_GL_SwapWindow(m_window);
+            SDL_WaitEvent(nullptr);
         }
 
         return true;
     }
 
-    void draw() {
+    bool draw() {
         const auto& io = ImGui::GetIO();
+        auto dirty = false;
 
         ImGui::Begin("cluamsy", nullptr,
                      ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove);
@@ -180,7 +176,7 @@ public:
 
         if (ImGui::Button(m_enabled ? "Stop" : "Start")) {
             toggle_win_divert();
-            m_dirty = true;
+            dirty = true;
         }
         ImGui::SameLine();
 
@@ -193,6 +189,7 @@ public:
         ImGui::SetNextItemWidth(8.f * ImGui::GetFontSize());
         if (ImGui::BeginCombo(
                 "Config", m_selected_config_entry.value_or("None").data())) {
+            ImGui::IsMouseClicked(ImGuiMouseButton_Right);
             for (const auto& [name, config] : m_config_entries) {
                 if (ImGui::Selectable(name.c_str(),
                                       m_selected_config_entry == name)) {
@@ -207,12 +204,13 @@ public:
                         }
                     }
 
-                    m_dirty = true;
+                    dirty = true;
                 }
             }
             ImGui::EndCombo();
 
-            m_dirty = true;
+            // FIXME:
+            dirty = true;
         }
 
         if (!m_error_message.empty()) {
@@ -221,7 +219,7 @@ public:
         }
 
         for (const auto& module : m_win_divert.modules()) {
-            m_dirty |= module->draw();
+            dirty |= module->draw();
         }
 
         // ImGui::GetCurrentWindow()->GetID("Logs");
@@ -237,11 +235,13 @@ public:
         // ImGui::EndChild();
 
         ImGui::End();
+
+        return dirty;
     }
 
 private:
     void toggle_win_divert() {
-        bool was_enabled = m_enabled;
+        auto was_enabled = m_enabled;
         if (!was_enabled) {
             const auto err = m_win_divert.start(m_filter);
             if (err) {
@@ -267,8 +267,6 @@ private:
     std::string m_error_message;
     // Is windivert enabled
     bool m_enabled = false;
-    // Should rerender
-    bool m_dirty = false;
 
 private:
     SDL_Window* m_window = nullptr;

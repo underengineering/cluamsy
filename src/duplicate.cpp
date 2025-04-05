@@ -63,7 +63,6 @@ void DuplicateModule::disable() {
     LOG("Disabling");
 
     m_indicator = 0.f;
-    m_dirty = true;
 }
 
 void DuplicateModule::apply_config(const toml::table& config) {
@@ -76,7 +75,7 @@ void DuplicateModule::apply_config(const toml::table& config) {
     m_count = std::max(config["count"].value_or(100), 0);
 }
 
-std::optional<std::chrono::milliseconds> DuplicateModule::process() {
+DuplicateModule::Result DuplicateModule::process() {
     const auto total_packets = g_packets.size();
     auto duplicated = 0;
     for (auto it = g_packets.begin(); it != g_packets.end();) {
@@ -96,7 +95,6 @@ std::optional<std::chrono::milliseconds> DuplicateModule::process() {
 
     m_indicator =
         static_cast<float>(duplicated) / static_cast<float>(total_packets);
-    m_dirty = true;
 
-    return std::nullopt;
+    return {.dirty = true};
 }

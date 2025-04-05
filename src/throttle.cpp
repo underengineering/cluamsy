@@ -88,17 +88,17 @@ void ThrottleModule::flush() {
 
     m_throttling = false;
     m_indicator = 0.f;
-    m_dirty = true;
 }
 
-std::optional<std::chrono::milliseconds> ThrottleModule::process() {
+ThrottleModule::Result ThrottleModule::process() {
+    auto dirty = false;
     if (!m_throttling && check_chance(m_chance)) {
         LOG("Start new throttling w/ chance %.1f, time frame: %lld", m_chance,
             m_timeframe_ms.count());
         m_throttling = true;
         m_start_point = std::chrono::steady_clock::now();
         m_indicator = 1.f;
-        m_dirty = true;
+        dirty = true;
     }
 
     if (m_throttling) {
@@ -119,14 +119,14 @@ std::optional<std::chrono::milliseconds> ThrottleModule::process() {
         if (m_throttle_list.size() >= MAX_PACKETS ||
             delta_time > m_timeframe_ms) {
             flush();
-            return std::nullopt;
+            return {.schedule_after = std::nullopt};
         } else {
             const auto delta_time_ms =
                 std::chrono::duration_cast<std::chrono::milliseconds>(
                     delta_time);
-            return m_timeframe_ms - delta_time_ms;
+            return {.schedule_after = m_timeframe_ms - delta_time_ms};
         }
     }
 
-    return std::nullopt;
+    return {.dirty = dirty};
 }

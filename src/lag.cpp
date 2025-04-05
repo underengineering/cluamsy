@@ -75,7 +75,6 @@ void LagModule::disable() {
     g_packets.splice(g_packets.cend(), m_lagged_packets);
 
     m_indicator = 0.f;
-    m_dirty = true;
 }
 
 void LagModule::apply_config(const toml::table& config) {
@@ -89,7 +88,7 @@ void LagModule::apply_config(const toml::table& config) {
         std::max(config["lag_time"].value_or(200), 0));
 }
 
-std::optional<std::chrono::milliseconds> LagModule::process() {
+LagModule::Result LagModule::process() {
     const auto current_time_point = std::chrono::steady_clock::now();
     for (auto it = g_packets.cbegin(); it != g_packets.cend();) {
         const auto itCopy = it++;
@@ -101,6 +100,12 @@ std::optional<std::chrono::milliseconds> LagModule::process() {
     }
 
     // Try sending overdue packets
+    auto dirty = false;
+    if (m_indicator > 0.f) {
+        m_indicator = 0.f;
+        dirty = true;
+    }
+
     std::optional<std::chrono::milliseconds> schedule_after = std::nullopt;
     for (auto it = m_lagged_packets.cbegin(); it != m_lagged_packets.cend();) {
         const auto itCopy = it++;
@@ -109,7 +114,7 @@ std::optional<std::chrono::milliseconds> LagModule::process() {
         if (current_time_point > packet.captured_at + m_lag_time) {
             g_packets.splice(g_packets.cend(), m_lagged_packets, itCopy);
             m_indicator = 1.f;
-            m_dirty = true;
+            dirty = true;
         } else {
             const auto will_send_after_ms =
                 std::chrono::duration_cast<std::chrono::milliseconds>(
@@ -130,5 +135,5 @@ std::optional<std::chrono::milliseconds> LagModule::process() {
         g_packets.splice(g_packets.cend(), m_lagged_packets);
     }
 
-    return schedule_after;
+    return {.schedule_after = schedule_after, .dirty = dirty};
 }

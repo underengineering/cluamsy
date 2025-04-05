@@ -55,7 +55,6 @@ void DropModule::disable() {
     LOG("Disabling");
 
     m_indicator = 0.f;
-    m_dirty = true;
 }
 
 void DropModule::apply_config(const toml::table& config) {
@@ -67,7 +66,7 @@ void DropModule::apply_config(const toml::table& config) {
     m_chance = std::clamp(config["chance"].value_or(100.f), 0.f, 100.f);
 }
 
-std::optional<std::chrono::milliseconds> DropModule::process() {
+DropModule::Result DropModule::process() {
     int dropped = 0;
     for (auto it = g_packets.begin(); it != g_packets.end();) {
         auto& packet = *it;
@@ -84,8 +83,8 @@ std::optional<std::chrono::milliseconds> DropModule::process() {
 
     if (dropped > 0) {
         m_indicator = 1.f;
-        m_dirty = true;
+        return {.dirty = true};
     }
 
-    return std::nullopt;
+    return {};
 }
