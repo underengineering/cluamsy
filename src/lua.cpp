@@ -8,7 +8,9 @@
 #include "drop.hpp"
 #include "duplicate.hpp"
 #include "lag.hpp"
+#include "tamper.hpp"
 #include "throttle.hpp"
+
 
 #include "common.hpp"
 #include "lua.hpp"
@@ -85,6 +87,7 @@ void Lua::push_api(const std::vector<std::shared_ptr<Module>>& modules) {
     ThrottleModule::lua_setup(L);
     BandwidthModule::lua_setup(L);
     DuplicateModule::lua_setup(L);
+    TamperModule::lua_setup(L);
 
     LOG("Creating modules");
     lua_newtable(L); // cluamsy

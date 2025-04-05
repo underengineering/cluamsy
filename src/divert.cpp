@@ -18,6 +18,7 @@
 #include "drop.hpp"
 #include "duplicate.hpp"
 #include "lag.hpp"
+#include "tamper.hpp"
 #include "throttle.hpp"
 
 static constexpr INT16 DIVERT_PRIORITY = 0;
@@ -29,6 +30,7 @@ WinDivert::WinDivert() {
     m_modules.emplace_back(std::make_shared<ThrottleModule>());
     m_modules.emplace_back(std::make_shared<BandwidthModule>());
     m_modules.emplace_back(std::make_shared<DuplicateModule>());
+    m_modules.emplace_back(std::make_shared<TamperModule>());
 }
 
 std::optional<std::string> WinDivert::start(const std::string& filter) {

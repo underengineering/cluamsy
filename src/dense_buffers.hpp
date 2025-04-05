@@ -27,6 +27,7 @@ public:
         return m_buffer;
     }
 
+    [[nodiscard]] char* data() noexcept { return m_buffer->data() + m_offset; }
     [[nodiscard]] const char* data() const noexcept {
         return m_buffer->data() + m_offset;
     }

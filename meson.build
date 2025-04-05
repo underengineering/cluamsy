@@ -65,7 +65,7 @@ sources = files(
   # 'src/ood.cpp',
   'src/packet.cpp',
   # 'src/reset.cpp',
-  # 'src/tamper.cpp',
+  'src/tamper.cpp',
   'src/throttle.cpp',
 )
 exe = executable(

@@ -1,151 +1,122 @@
-// tampering packet module
-#include "common.h"
-#include "iup.h"
-#include "windivert.h"
-#include <stdbool.h>
-#define NAME "tamper"
+#include <algorithm>
+#include <bit>
+#include <imgui.h>
+#include <windivert.h>
 
-static Ihandle *inboundCheckbox, *outboundCheckbox, *chanceInput,
-    *checksumCheckbox;
+#include "common.hpp"
+#include "packet.hpp"
+#include "tamper.hpp"
 
-static volatile short tamperEnabled = 0, tamperInbound = 1, tamperOutbound = 1,
-                      chance = 1000, // [0 - 10000]
-    doChecksum = 1;                  // recompute checksum after after tampering
+bool TamperModule::draw() {
+    bool dirty = false;
 
-static Ihandle* tamperSetupUI() {
-    Ihandle* dupControlsBox =
-        IupHbox(checksumCheckbox = IupToggle("Redo Checksum", NULL),
-                inboundCheckbox = IupToggle("Inbound", NULL),
-                outboundCheckbox = IupToggle("Outbound", NULL),
-                IupLabel("Chance(%):"), chanceInput = IupText(NULL), NULL);
+    ImGui::PushID(m_short_name);
+    ImGui::BeginGroup();
 
-    IupSetAttribute(chanceInput, "VISIBLECOLUMNS", "4");
-    IupSetAttribute(chanceInput, "VALUE", "10.0");
-    IupSetCallback(chanceInput, "VALUECHANGED_CB", uiSyncChance);
-    IupSetAttribute(chanceInput, SYNCED_VALUE, (char*)&chance);
-    IupSetCallback(inboundCheckbox, "ACTION", (Icallback)uiSyncToggle);
-    IupSetAttribute(inboundCheckbox, SYNCED_VALUE, (char*)&tamperInbound);
-    IupSetCallback(outboundCheckbox, "ACTION", (Icallback)uiSyncToggle);
-    IupSetAttribute(outboundCheckbox, SYNCED_VALUE, (char*)&tamperOutbound);
-    // sync doChecksum
-    IupSetCallback(checksumCheckbox, "ACTION", (Icallback)uiSyncToggle);
-    IupSetAttribute(checksumCheckbox, SYNCED_VALUE, (char*)&doChecksum);
+    ImGui::PushStyleColor(ImGuiCol_Text, {m_indicator, 0.f, 0.f, 1.f});
+    ImGui::Bullet();
+    ImGui::PopStyleColor();
 
-    // enable by default to avoid confusing
-    IupSetAttribute(inboundCheckbox, "VALUE", "ON");
-    IupSetAttribute(outboundCheckbox, "VALUE", "ON");
-    IupSetAttribute(checksumCheckbox, "VALUE", "ON");
-
-    if (parameterized) {
-        setFromParameter(inboundCheckbox, "VALUE", NAME "-inbound");
-        setFromParameter(outboundCheckbox, "VALUE", NAME "-outbound");
-        setFromParameter(chanceInput, "VALUE", NAME "-chance");
-        setFromParameter(checksumCheckbox, "VALUE", NAME "-checksum");
+    if (m_indicator > 0.f) {
+        m_indicator -= ImGui::GetIO().DeltaTime * 10.f;
+        dirty = true;
     }
 
-    return dupControlsBox;
-}
+    ImGui::SameLine();
 
-// patterns covers every bit
-#define PATTERN_CNT 8
-static char patterns[] = {0x64, 0x13, 0x88,
+    ImGui::Text("%s", m_display_name);
 
-                          0x40, 0x1F, 0xA0,
+    ImGui::SameLine();
 
-                          0xAA, 0x55};
-static int patIx; // put this here to give a more random results
+    dirty |= ImGui::Checkbox("Enable", &m_enabled);
 
-static void tamperStartup() {
-    LOG("tamper enabled");
-    patIx = 0;
-}
+    ImGui::SameLine();
 
-static void tamperCloseDown(PacketNode* head, PacketNode* tail) {
-    UNREFERENCED_PARAMETER(head);
-    UNREFERENCED_PARAMETER(tail);
-    LOG("tamper disabled");
-}
+    dirty |= ImGui::Checkbox("Inbound", &m_inbound);
 
-static INLINE_FUNCTION void tamper_buf(char* buf, UINT len) {
-    UINT ix;
-    for (ix = 0; ix < len; ++ix) {
-        buf[ix] ^= patterns[patIx++ & 0x7];
+    ImGui::SameLine();
+
+    dirty |= ImGui::Checkbox("Outbound", &m_outbound);
+
+    ImGui::SameLine();
+
+    ImGui::SetNextItemWidth(8.f * ImGui::GetFontSize());
+    if (ImGui::InputInt("Max bit flips", &m_max_bit_flips)) {
+        m_max_bit_flips = std::max(m_max_bit_flips, 1);
+        dirty = true;
     }
+
+    ImGui::SameLine();
+
+    ImGui::SetNextItemWidth(8.f * ImGui::GetFontSize());
+    if (ImGui::InputFloat("Chance", &m_chance)) {
+        m_chance = std::clamp(m_chance, 0.f, 100.f);
+        dirty = true;
+    }
+
+    ImGui::EndGroup();
+    ImGui::PopID();
+
+    return dirty;
 }
 
-static short tamperProcess(PacketNode* head, PacketNode* tail) {
-    short tampered = FALSE;
-    PacketNode* pac = head->next;
-    while (pac != tail) {
-        if (checkDirection(pac->addr.Outbound, tamperInbound, tamperOutbound) &&
-            calcChance(chance)) {
-            char* data = NULL;
-            UINT dataLen = 0;
-            if (WinDivertHelperParsePacket(
-                    pac->packet, pac->packetLen, NULL, NULL, NULL, NULL, NULL,
-                    NULL, NULL, (PVOID*)&data, &dataLen, NULL, NULL) &&
-                data != NULL && dataLen != 0) {
-                // try to tamper the central part of the packet,
-                // since common packets put their checksum at head or tail
-                if (dataLen <= 4) {
-                    // for short packet just tamper it all
-                    tamper_buf(data, dataLen);
-                    LOG("tampered w/ chance %.1f, dochecksum: %d, short packet "
-                        "changed all",
-                        chance / 100.0, doChecksum);
-                } else {
-                    // for longer ones process 1/4 of the lens start somewhere
-                    // in the middle
-                    UINT len = dataLen;
-                    UINT len_d4 = len / 4;
-                    tamper_buf(data + len / 2 - len_d4 / 2 + 1, len_d4);
-                    LOG("tampered w/ chance %.1f, dochecksum: %d, changing %d "
-                        "bytes out of %u",
-                        chance / 100.0, doChecksum, len_d4, len);
-                }
-                // FIXME checksum seems to have some problem
-                if (doChecksum) {
-                    WinDivertHelperCalcChecksums(pac->packet, pac->packetLen,
-                                                 NULL, 0);
-                }
-                tampered = TRUE;
+void TamperModule::enable() { LOG("Enabling"); }
+
+void TamperModule::disable() {
+    LOG("Disabling");
+    m_indicator = 0.f;
+}
+
+void TamperModule::apply_config(const toml::table& config) {
+    Module::apply_config(config);
+
+    m_inbound = config["inbound"].value_or(true);
+    m_outbound = config["outbound"].value_or(true);
+
+    m_chance = std::clamp(config["chance"].value_or(100.f), 0.f, 100.f);
+    m_max_bit_flips = std::max(config["max_bit_flips"].value_or(1), 1);
+}
+
+TamperModule::Result TamperModule::process() {
+    const auto total_packets = g_packets.size();
+    auto tampered = 0;
+    for (auto it = g_packets.begin(); it != g_packets.end();) {
+        const auto itCopy = it++;
+        auto& packet = *itCopy;
+        if (!check_direction(packet.addr.Outbound, m_inbound, m_outbound) ||
+            !check_chance(m_chance))
+            continue;
+
+        auto& packet_data = packet.packet;
+
+        char* data = nullptr;
+        UINT data_size = 0;
+        if (WinDivertHelperParsePacket(
+                packet_data.data(), packet_data.size(), nullptr, nullptr,
+                nullptr, nullptr, nullptr, nullptr, nullptr,
+                std::bit_cast<PVOID*>(&data), &data_size, nullptr, nullptr) &&
+            data != nullptr && data_size != 0) {
+            for (auto i = 0; i < m_max_bit_flips; i++) {
+                const size_t idx = rand() % data_size;
+                const uint8_t bit = 1 << (rand() % 8);
+
+                // NOLINTBEGIN(cppcoreguidelines-narrowing-conversions)
+                data[idx] ^= bit;
+                // NOLINTEND(cppcoreguidelines-narrowing-conversions)
             }
+
+            WinDivertHelperCalcChecksums(packet_data.data(), packet_data.size(),
+                                         nullptr, 0);
+            tampered++;
         }
-        pac = pac->next;
-    }
-    return tampered;
-}
-
-static int tamper_enable(lua_State* L) {
-    int type = lua_gettop(L) > 0 ? lua_type(L, -1) : LUA_TNIL;
-    switch (type) {
-    case LUA_TBOOLEAN:
-        bool enabled = lua_toboolean(L, -1);
-        tamperEnabled = enabled;
-        break;
-    case LUA_TNIL:
-        lua_pushboolean(L, tamperEnabled);
-        return 1;
-    default:
-        char message[256];
-        int message_length =
-            snprintf(message, sizeof(message),
-                     "Invalid argument #1 to tamper_enable: '%s'",
-                     lua_typename(L, type));
-        lua_pushlstring(L, message, message_length);
-        lua_error(L);
-        break;
     }
 
-    return 0;
-}
+    const auto indicator =
+        static_cast<float>(tampered) / static_cast<float>(total_packets);
+    if (!almost_equal(indicator, m_indicator)) {
+        m_indicator = indicator;
+        return {.dirty = true};
+    }
 
-static void push_lua_functions(lua_State* L) {
-    lua_pushcfunction(L, tamper_enable);
-    lua_setfield(L, -2, "enable");
+    return {};
 }
-
-Module tamperModule = {"Tamper", NAME, (short*)&tamperEnabled, tamperSetupUI,
-                       tamperStartup, tamperCloseDown, tamperProcess,
-                       // runtime fields
-                       0, 0, NULL, push_lua_functions};
