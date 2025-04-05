@@ -6,9 +6,11 @@
 #include <thread>
 #include <windivert.h>
 
+#include "SDL_events.h"
 #include "common.hpp"
 #include "dense_buffers.hpp"
 #include "divert.hpp"
+#include "events.hpp"
 #include "module.hpp"
 #include "packet.hpp"
 
@@ -265,25 +267,39 @@ void WinDivert::thread(ThreadData thread_data) {
         }
         case WAIT_TIMEOUT: {
             // Run modules
+            auto dirty = false;
             for (const auto& module : thread_data.modules) {
                 if (module->m_enabled) {
                     // Initialize it if it wasn't
                     if (!module->m_was_enabled) {
                         module->enable();
                         module->m_was_enabled = true;
+
+                        dirty = true;
                     }
 
-                    const auto schedule_after = module->process();
-                    if (schedule_after && wait_timeout) {
-                        wait_timeout = std::chrono::milliseconds(std::min(
-                            wait_timeout->count(), schedule_after->count()));
-                    } else if (schedule_after) {
-                        wait_timeout = schedule_after;
+                    const auto result = module->process();
+                    if (result.schedule_after && wait_timeout) {
+                        wait_timeout = std::chrono::milliseconds(
+                            std::min(wait_timeout->count(),
+                                     result.schedule_after->count()));
+                    } else if (result.schedule_after) {
+                        wait_timeout = result.schedule_after;
                     }
+
+                    dirty |= result.dirty;
                 } else if (module->m_was_enabled) {
                     module->disable();
                     module->m_was_enabled = false;
+
+                    dirty = true;
                 }
+            }
+
+            // Notify main thread to redraw
+            if (dirty) {
+                SDL_Event event{events::REDRAW};
+                SDL_PushEvent(&event);
             }
 
             if (!pending_write && !g_packets.empty())
@@ -324,7 +340,11 @@ void WinDivert::thread(ThreadData thread_data) {
         }
         // STOP
         case WAIT_OBJECT_0 + 2:
-            should_stop = true;
+            if (pending_write)
+                should_stop = true;
+            else
+                stop = true;
+
             break;
         case WAIT_FAILED: {
             LOG("WaitForMultipleObjects failed: %lu", GetLastError());

@@ -18,7 +18,7 @@ public:
 
     void apply_config(const toml::table& config) override;
 
-    std::optional<std::chrono::milliseconds> process() override;
+    Result process() override;
 
     static void lua_setup(lua_State* L) {
         luaL_Reg methods[] = {
@@ -45,8 +45,6 @@ private:
     static int lua_method_chance(lua_State* L) {
         auto* module = *std::bit_cast<DuplicateModule**>(lua_touserdata(L, 1));
         const auto rets = lua_getset(L, module->m_chance, 2);
-        if (rets == 0)
-            module->m_dirty = true;
 
         return rets;
     };
@@ -54,8 +52,6 @@ private:
     static int lua_method_count(lua_State* L) {
         auto* module = *std::bit_cast<DuplicateModule**>(lua_touserdata(L, 1));
         const auto rets = lua_getset(L, module->m_count, 2);
-        if (rets == 0)
-            module->m_dirty = true;
 
         return rets;
     };

@@ -59,12 +59,12 @@ void BandwidthModule::apply_config(const toml::table& config) {
     m_limit = std::max(config["limit"].value_or(10), 0);
 }
 
-std::optional<std::chrono::milliseconds> BandwidthModule::process() {
+BandwidthModule::Result BandwidthModule::process() {
     const auto current_time_point = std::chrono::steady_clock::now();
 
     // allow 0 limit which should drop all
     if (m_limit < 0)
-        return std::nullopt;
+        return {};
 
     const auto limit = m_limit * 1024;
 
@@ -91,7 +91,6 @@ std::optional<std::chrono::milliseconds> BandwidthModule::process() {
 
     m_indicator =
         static_cast<float>(dropped) / static_cast<float>(total_packets);
-    m_dirty = true;
 
-    return std::nullopt;
+    return {.dirty = true};
 }
