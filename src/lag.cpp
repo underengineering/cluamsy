@@ -91,11 +91,12 @@ void LagModule::apply_config(const toml::table& config) {
 LagModule::Result LagModule::process() {
     const auto current_time_point = std::chrono::steady_clock::now();
     for (auto it = g_packets.cbegin(); it != g_packets.cend();) {
-        const auto itCopy = it++;
-        const auto& packet = *itCopy;
+        const auto it_copy = it++;
+        const auto& packet = *it_copy;
         if (check_direction(packet.addr.Outbound, m_inbound, m_outbound) &&
             check_chance(m_chance)) {
-            m_lagged_packets.splice(m_lagged_packets.cend(), g_packets, itCopy);
+            m_lagged_packets.splice(m_lagged_packets.cend(), g_packets,
+                                    it_copy);
         }
     }
 
@@ -108,11 +109,11 @@ LagModule::Result LagModule::process() {
 
     std::optional<std::chrono::milliseconds> schedule_after = std::nullopt;
     for (auto it = m_lagged_packets.cbegin(); it != m_lagged_packets.cend();) {
-        const auto itCopy = it++;
-        const auto& packet = *itCopy;
+        const auto it_copy = it++;
+        const auto& packet = *it_copy;
 
         if (current_time_point > packet.captured_at + m_lag_time) {
-            g_packets.splice(g_packets.cend(), m_lagged_packets, itCopy);
+            g_packets.splice(g_packets.cend(), m_lagged_packets, it_copy);
             m_indicator = 1.f;
             dirty = true;
         } else {

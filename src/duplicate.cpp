@@ -78,8 +78,8 @@ void DuplicateModule::apply_config(const toml::table& config) {
 DuplicateModule::Result DuplicateModule::process() {
     const auto total_packets = g_packets.size();
     auto duplicated = 0;
-    for (auto it = g_packets.begin(); it != g_packets.end();) {
-        auto& packet = *it;
+    for (auto it = g_packets.cbegin(); it != g_packets.cend();) {
+        const auto& packet = *it;
         if (check_direction(packet.addr.Outbound, m_inbound, m_outbound) &&
             check_chance(m_chance)) {
             LOG("Duplicated with chance %.1f%%, direction %s", m_chance,

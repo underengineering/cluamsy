@@ -104,13 +104,13 @@ ThrottleModule::Result ThrottleModule::process() {
     if (m_throttling) {
         // Already throttling, keep filling up
         const auto current_time_point = std::chrono::steady_clock::now();
-        for (auto it = g_packets.begin();
-             it != g_packets.end() && m_throttle_list.size() < MAX_PACKETS;) {
-            const auto itCopy = it++;
-            const auto& packet = *itCopy;
+        for (auto it = g_packets.cbegin();
+             it != g_packets.cend() && m_throttle_list.size() < MAX_PACKETS;) {
+            const auto it_copy = it++;
+            const auto& packet = *it_copy;
             if (check_direction(packet.addr.Outbound, m_inbound, m_outbound)) {
                 m_throttle_list.splice(m_throttle_list.cend(), g_packets,
-                                       itCopy);
+                                       it_copy);
             }
         }
 
