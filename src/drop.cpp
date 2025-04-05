@@ -67,7 +67,8 @@ void DropModule::apply_config(const toml::table& config) {
 }
 
 DropModule::Result DropModule::process() {
-    int dropped = 0;
+    const auto total_packets = g_packets.size();
+    size_t dropped = 0;
     for (auto it = g_packets.begin(); it != g_packets.end();) {
         auto& packet = *it;
         if (check_direction(packet.addr.Outbound, m_inbound, m_outbound) &&
@@ -81,8 +82,10 @@ DropModule::Result DropModule::process() {
         }
     }
 
-    if (dropped > 0) {
-        m_indicator = 1.f;
+    const auto indicator =
+        static_cast<float>(dropped) / static_cast<float>(total_packets);
+    if (!almost_equal(indicator, m_indicator)) {
+        m_indicator = indicator;
         return {.dirty = true};
     }
 
