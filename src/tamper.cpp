@@ -81,8 +81,7 @@ TamperModule::Result TamperModule::process() {
     const auto total_packets = g_packets.size();
     auto tampered = 0;
     for (auto it = g_packets.begin(); it != g_packets.end();) {
-        const auto itCopy = it++;
-        auto& packet = *itCopy;
+        auto& packet = *it;
         if (!check_direction(packet.addr.Outbound, m_inbound, m_outbound) ||
             !check_chance(m_chance))
             continue;
