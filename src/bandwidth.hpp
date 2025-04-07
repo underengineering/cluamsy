@@ -62,11 +62,11 @@ public:
     bool draw() override;
 
     void enable() override;
-    void disable() override;
+    void disable(std::list<PacketNode>& packets) override;
 
     void apply_config(const toml::table& config) override;
 
-    Result process() override;
+    Result process(std::list<PacketNode>& packets) override;
 
     static void lua_setup(lua_State* L) {
         luaL_Reg methods[] = {

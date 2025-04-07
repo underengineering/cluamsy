@@ -1,8 +1,6 @@
 #pragma once
 
 #include <chrono>
-#include <list>
-
 #include <windivert.h>
 
 #include "dense_buffers.hpp"
@@ -12,5 +10,3 @@ struct PacketNode {
     WINDIVERT_ADDRESS addr;
     std::chrono::steady_clock::time_point captured_at;
 };
-
-extern std::list<PacketNode> g_packets;

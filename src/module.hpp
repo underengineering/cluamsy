@@ -1,10 +1,12 @@
 #pragma once
 
 #include <chrono>
+#include <list>
 #include <lua.hpp>
 #include <toml.hpp>
 
 #include "lua_util.hpp"
+#include "packet.hpp"
 
 class Module {
     friend class WinDivert;
@@ -28,13 +30,13 @@ public:
     virtual bool draw() = 0;
 
     virtual void enable() = 0;
-    virtual void disable() = 0;
+    virtual void disable(std::list<PacketNode>& packets) = 0;
 
     virtual void apply_config(const toml::table& config) {
         m_enabled = config["enabled"].value_or(false);
     };
 
-    virtual Result process() = 0;
+    virtual Result process(std::list<PacketNode>& packets) = 0;
 
     static void lua_setup(lua_State* L) {
         luaL_newmetatable(L, "Module");

@@ -62,8 +62,9 @@ bool TamperModule::draw() {
 
 void TamperModule::enable() { LOG("Enabling"); }
 
-void TamperModule::disable() {
+void TamperModule::disable(std::list<PacketNode>&) {
     LOG("Disabling");
+
     m_indicator = 0.f;
 }
 
@@ -77,10 +78,10 @@ void TamperModule::apply_config(const toml::table& config) {
     m_max_bit_flips = std::max(config["max_bit_flips"].value_or(1), 1);
 }
 
-TamperModule::Result TamperModule::process() {
-    const auto total_packets = g_packets.size();
+TamperModule::Result TamperModule::process(std::list<PacketNode>& packets) {
+    const auto total_packets = packets.size();
     auto tampered = 0;
-    for (auto it = g_packets.begin(); it != g_packets.end();) {
+    for (auto it = packets.begin(); it != packets.end();) {
         auto& packet = *it;
         if (!check_direction(packet.addr.Outbound, m_inbound, m_outbound) ||
             !check_chance(m_chance))

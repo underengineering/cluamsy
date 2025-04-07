@@ -63,7 +63,6 @@ sources = files(
   'src/main.cpp',
   # 'src/main.cpp',
   # 'src/ood.cpp',
-  'src/packet.cpp',
   # 'src/reset.cpp',
   'src/tamper.cpp',
   'src/throttle.cpp',

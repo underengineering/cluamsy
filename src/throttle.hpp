@@ -24,14 +24,14 @@ public:
     bool draw() override;
 
     void enable() override;
-    void disable() override;
+    void disable(std::list<PacketNode>& packets) override;
 
     void apply_config(const toml::table& config) override;
 
-    Result process() override;
+    Result process(std::list<PacketNode>& packets) override;
 
 private:
-    void flush();
+    void flush(std::list<PacketNode>& packets);
 
 public:
     static void lua_setup(lua_State* L) {

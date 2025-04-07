@@ -51,7 +51,7 @@ bool DropModule::draw() {
 }
 
 void DropModule::enable() { LOG("Enabling"); }
-void DropModule::disable() {
+void DropModule::disable(std::list<PacketNode>&) {
     LOG("Disabling");
 
     m_indicator = 0.f;
@@ -66,16 +66,16 @@ void DropModule::apply_config(const toml::table& config) {
     m_chance = std::clamp(config["chance"].value_or(100.f), 0.f, 100.f);
 }
 
-DropModule::Result DropModule::process() {
-    const auto total_packets = g_packets.size();
+DropModule::Result DropModule::process(std::list<PacketNode>& packets) {
+    const auto total_packets = packets.size();
     size_t dropped = 0;
-    for (auto it = g_packets.begin(); it != g_packets.end();) {
+    for (auto it = packets.begin(); it != packets.end();) {
         auto& packet = *it;
         if (check_direction(packet.addr.Outbound, m_inbound, m_outbound) &&
             check_chance(m_chance)) {
             LOG("Dropped with chance %.1f%%, direction %s", m_chance,
                 packet.addr.Outbound ? "OUTBOUND" : "INBOUND");
-            it = g_packets.erase(it);
+            it = packets.erase(it);
             ++dropped;
         } else {
             ++it;

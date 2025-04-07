@@ -45,7 +45,9 @@ bool BandwidthModule::draw() {
 }
 
 void BandwidthModule::enable() { LOG("Enabling"); }
-void BandwidthModule::disable() {
+void BandwidthModule::disable(std::list<PacketNode>&) {
+    LOG("Disabling");
+
     m_indicator = 0.f;
     m_rate_stats.reset();
 }
@@ -59,7 +61,8 @@ void BandwidthModule::apply_config(const toml::table& config) {
     m_limit = std::max(config["limit"].value_or(10), 0);
 }
 
-BandwidthModule::Result BandwidthModule::process() {
+BandwidthModule::Result
+BandwidthModule::process(std::list<PacketNode>& packets) {
     const auto current_time_point = std::chrono::steady_clock::now();
 
     // allow 0 limit which should drop all
@@ -68,12 +71,12 @@ BandwidthModule::Result BandwidthModule::process() {
 
     const auto limit = m_limit * 1024;
 
-    const auto total_packets = g_packets.size();
+    const auto total_packets = packets.size();
     size_t dropped = 0;
 
     m_rate_stats.set_max_tokens(limit);
     m_rate_stats.replenish(current_time_point, limit);
-    for (auto it = g_packets.begin(); it != g_packets.end();) {
+    for (auto it = packets.begin(); it != packets.end();) {
         const auto packet = *it;
         if (check_direction(packet.addr.Outbound, m_inbound, m_outbound)) {
             const auto size = packet.packet.size();
@@ -81,7 +84,7 @@ BandwidthModule::Result BandwidthModule::process() {
                 LOG("Dropped with bandwidth %dKiB/s, direction %s",
                     (int)m_limit,
                     packet.addr.Outbound ? "OUTBOUND" : "INBOUND");
-                it = g_packets.erase(it);
+                it = packets.erase(it);
                 dropped++;
             } else {
                 ++it;

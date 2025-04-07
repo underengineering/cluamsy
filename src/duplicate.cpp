@@ -59,7 +59,7 @@ bool DuplicateModule::draw() {
 }
 
 void DuplicateModule::enable() { LOG("Enabling"); }
-void DuplicateModule::disable() {
+void DuplicateModule::disable(std::list<PacketNode>&) {
     LOG("Disabling");
 
     m_indicator = 0.f;
@@ -75,17 +75,18 @@ void DuplicateModule::apply_config(const toml::table& config) {
     m_count = std::max(config["count"].value_or(100), 0);
 }
 
-DuplicateModule::Result DuplicateModule::process() {
-    const auto total_packets = g_packets.size();
+DuplicateModule::Result
+DuplicateModule::process(std::list<PacketNode>& packets) {
+    const auto total_packets = packets.size();
     auto duplicated = 0;
-    for (auto it = g_packets.cbegin(); it != g_packets.cend();) {
+    for (auto it = packets.cbegin(); it != packets.cend();) {
         const auto& packet = *it;
         if (check_direction(packet.addr.Outbound, m_inbound, m_outbound) &&
             check_chance(m_chance)) {
             LOG("Duplicated with chance %.1f%%, direction %s", m_chance,
                 packet.addr.Outbound ? "OUTBOUND" : "INBOUND");
             for (auto i = 0; i < m_count; i++)
-                it = g_packets.insert(it, packet);
+                it = packets.insert(it, packet);
             std::advance(it, m_count);
             ++duplicated;
         } else {

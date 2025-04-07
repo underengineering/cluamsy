@@ -61,10 +61,10 @@ void ThrottleModule::enable() {
     assert(m_throttle_list.empty() && !m_throttling);
 }
 
-void ThrottleModule::disable() {
+void ThrottleModule::disable(std::list<PacketNode>& packets) {
     LOG("Disabling");
 
-    flush();
+    flush(packets);
 }
 
 void ThrottleModule::apply_config(const toml::table& config) {
@@ -79,18 +79,18 @@ void ThrottleModule::apply_config(const toml::table& config) {
     m_drop_throttled = config["drop_throttled"].value_or(false);
 }
 
-void ThrottleModule::flush() {
+void ThrottleModule::flush(std::list<PacketNode>& packets) {
     LOG("Sending all %zu packets", m_throttle_list.size());
     if (m_drop_throttled)
         m_throttle_list.clear();
     else
-        g_packets.splice(g_packets.cend(), m_throttle_list);
+        packets.splice(packets.cend(), m_throttle_list);
 
     m_throttling = false;
     m_indicator = 0.f;
 }
 
-ThrottleModule::Result ThrottleModule::process() {
+ThrottleModule::Result ThrottleModule::process(std::list<PacketNode>& packets) {
     auto dirty = false;
     if (!m_throttling && check_chance(m_chance)) {
         LOG("Start new throttling w/ chance %.1f, time frame: %lld", m_chance,
@@ -104,12 +104,12 @@ ThrottleModule::Result ThrottleModule::process() {
     if (m_throttling) {
         // Already throttling, keep filling up
         const auto current_time_point = std::chrono::steady_clock::now();
-        for (auto it = g_packets.cbegin();
-             it != g_packets.cend() && m_throttle_list.size() < MAX_PACKETS;) {
+        for (auto it = packets.cbegin();
+             it != packets.cend() && m_throttle_list.size() < MAX_PACKETS;) {
             const auto it_copy = it++;
             const auto& packet = *it_copy;
             if (check_direction(packet.addr.Outbound, m_inbound, m_outbound)) {
-                m_throttle_list.splice(m_throttle_list.cend(), g_packets,
+                m_throttle_list.splice(m_throttle_list.cend(), packets,
                                        it_copy);
             }
         }
@@ -118,7 +118,7 @@ ThrottleModule::Result ThrottleModule::process() {
         const auto delta_time = current_time_point - m_start_point;
         if (m_throttle_list.size() >= MAX_PACKETS ||
             delta_time > m_timeframe_ms) {
-            flush();
+            flush(packets);
             return {.schedule_after = std::nullopt};
         } else {
             const auto delta_time_ms =

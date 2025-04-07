@@ -68,11 +68,11 @@ void LagModule::enable() {
     assert(m_lagged_packets.empty());
 }
 
-void LagModule::disable() {
+void LagModule::disable(std::list<PacketNode>& packets) {
     LOG("Disabling, flushing %zu packets", m_lagged_packets.size());
 
     // Send all lagged packets
-    g_packets.splice(g_packets.cend(), m_lagged_packets);
+    packets.splice(packets.cend(), m_lagged_packets);
 
     m_indicator = 0.f;
 }
@@ -88,15 +88,14 @@ void LagModule::apply_config(const toml::table& config) {
         std::max(config["lag_time"].value_or(200), 0));
 }
 
-LagModule::Result LagModule::process() {
+LagModule::Result LagModule::process(std::list<PacketNode>& packets) {
     const auto current_time_point = std::chrono::steady_clock::now();
-    for (auto it = g_packets.cbegin(); it != g_packets.cend();) {
+    for (auto it = packets.cbegin(); it != packets.cend();) {
         const auto it_copy = it++;
         const auto& packet = *it_copy;
         if (check_direction(packet.addr.Outbound, m_inbound, m_outbound) &&
             check_chance(m_chance)) {
-            m_lagged_packets.splice(m_lagged_packets.cend(), g_packets,
-                                    it_copy);
+            m_lagged_packets.splice(m_lagged_packets.cend(), packets, it_copy);
         }
     }
 
@@ -113,7 +112,7 @@ LagModule::Result LagModule::process() {
         const auto& packet = *it_copy;
 
         if (current_time_point > packet.captured_at + m_lag_time) {
-            g_packets.splice(g_packets.cend(), m_lagged_packets, it_copy);
+            packets.splice(packets.cend(), m_lagged_packets, it_copy);
             m_indicator = 1.f;
             dirty = true;
         } else {
@@ -133,7 +132,7 @@ LagModule::Result LagModule::process() {
     // If buffer is full just flush things out
     if (m_lagged_packets.size() > MAX_PACKETS) {
         LOG("Buffer full, flushing");
-        g_packets.splice(g_packets.cend(), m_lagged_packets);
+        packets.splice(packets.cend(), m_lagged_packets);
     }
 
     return {.schedule_after = schedule_after, .dirty = dirty};

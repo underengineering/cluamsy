@@ -103,15 +103,6 @@ bool WinDivert::stop() {
     CloseHandle(m_stop_event_handle);
     m_stop_event_handle = nullptr;
 
-    // Write thread should've sent all packets already
-    assert(g_packets.empty());
-
-    // Run post-disable module cleanups
-    for (auto& module : m_modules) {
-        if (module->m_enabled && module->m_was_enabled)
-            module->disable();
-    }
-
     LOG("WinDivert stopped");
 
     return true;
@@ -124,6 +115,8 @@ struct PendingWrite {
 };
 
 void WinDivert::thread(ThreadData thread_data) {
+    std::list<PacketNode> packets;
+
     auto read_event_handle = CreateEvent(nullptr, false, false, nullptr);
     auto write_event_handle = CreateEvent(nullptr, false, false, nullptr);
 
@@ -150,11 +143,11 @@ void WinDivert::thread(ThreadData thread_data) {
         };
 
         // Find biggest contiguous dense buffer slice
-        auto it = g_packets.cbegin();
+        auto it = packets.cbegin();
         const auto& first_slice = it->packet;
         auto contiguous_slice_offset = first_slice.offset();
         size_t write_packet_count = 0;
-        for (; it != g_packets.cend(); ++it, write_packet_count++) {
+        for (; it != packets.cend(); ++it, write_packet_count++) {
             const auto& slice = it->packet;
 
             // Check for buffer equality
@@ -183,7 +176,7 @@ void WinDivert::thread(ThreadData thread_data) {
                         nullptr, 0, pending_write->addresses.data(),
                         write_packet_count * sizeof(WINDIVERT_ADDRESS),
                         &write_overlap);
-        g_packets.erase(g_packets.cbegin(), it);
+        packets.erase(packets.cbegin(), it);
     };
 
     std::optional<std::chrono::milliseconds> wait_timeout;
@@ -205,7 +198,7 @@ void WinDivert::thread(ThreadData thread_data) {
         case WAIT_OBJECT_0 + 1: {
             DWORD read = 0;
             if (!GetOverlappedResult(thread_data.divert_handle, &read_overlap,
-                                     &read, true)) {
+                                     &read, true)) [[unlikely]] {
                 const auto error = GetLastError();
                 if (error == ERROR_INVALID_HANDLE ||
                     error == ERROR_OPERATION_ABORTED) {
@@ -249,7 +242,7 @@ void WinDivert::thread(ThreadData thread_data) {
                     //     ipv6hdr->HopLimit, packet_size);
                 }
 
-                g_packets.emplace_back(PacketNode{
+                packets.emplace_back(PacketNode{
                     .packet = dense_buffers.slice(offset, packet_size),
                     .addr = read_addresses[i],
                     .captured_at = current_timestamp,
@@ -280,7 +273,7 @@ void WinDivert::thread(ThreadData thread_data) {
                         dirty = true;
                     }
 
-                    const auto result = module->process();
+                    const auto result = module->process(packets);
                     if (result.schedule_after && wait_timeout) {
                         wait_timeout = std::chrono::milliseconds(
                             std::min(wait_timeout->count(),
@@ -291,7 +284,7 @@ void WinDivert::thread(ThreadData thread_data) {
 
                     dirty |= result.dirty;
                 } else if (module->m_was_enabled) {
-                    module->disable();
+                    module->disable(packets);
                     module->m_was_enabled = false;
 
                     dirty = true;
@@ -304,7 +297,7 @@ void WinDivert::thread(ThreadData thread_data) {
                 SDL_PushEvent(&event);
             }
 
-            if (!pending_write && !g_packets.empty())
+            if (!pending_write && !packets.empty())
                 stage_write();
 
             break;
@@ -313,7 +306,7 @@ void WinDivert::thread(ThreadData thread_data) {
         case WAIT_OBJECT_0: {
             DWORD write = 0;
             if (!GetOverlappedResult(thread_data.divert_handle, &write_overlap,
-                                     &write, true)) {
+                                     &write, true)) [[unlikely]] {
                 const auto error = GetLastError();
                 if (error == ERROR_INVALID_HANDLE ||
                     error == ERROR_OPERATION_ABORTED) {
@@ -328,24 +321,33 @@ void WinDivert::thread(ThreadData thread_data) {
 
             // LOG("Wrote %lu bytes, pending %zu", write, g_packets.size());
 
-            if (g_packets.empty() && should_stop) {
+            if (packets.empty() && should_stop) [[unlikely]] {
                 LOG("Stopping");
                 stop = true;
                 break;
             }
 
             pending_write = std::nullopt;
-            if (!g_packets.empty())
+            if (!packets.empty())
                 stage_write();
 
             break;
         }
         // STOP
         case WAIT_OBJECT_0 + 2:
-            if (pending_write)
+            // Run post-disable module cleanups
+            for (auto& module : thread_data.modules) {
+                if (module->m_enabled && module->m_was_enabled)
+                    module->disable(packets);
+            }
+
+            if (pending_write || !packets.empty()) {
+                // Wait for all packets to be sent before exiting
                 should_stop = true;
-            else
+            } else {
+                // We can exit immediately
                 stop = true;
+            }
 
             break;
         case WAIT_FAILED: {
@@ -355,7 +357,7 @@ void WinDivert::thread(ThreadData thread_data) {
         }
         }
 
-        if (stop)
+        if (stop) [[unlikely]]
             break;
     }
 
