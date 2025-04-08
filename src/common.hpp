@@ -22,7 +22,7 @@ inline bool check_direction(bool outbound_packet, bool handle_inbound,
            (handle_outbound && outbound_packet);
 }
 
-constexpr inline bool
+inline bool
 almost_equal(float a, float b,
              float epsilon = std::numeric_limits<float>::epsilon()) {
     return std::abs(a - b) < epsilon;
