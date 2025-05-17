@@ -1,9 +1,9 @@
-#include "events.hpp"
 #define WIN32_LEAN_AND_MEAN
 #include <Windows.h>
 
 #include <SDL.h>
 #include <SDL_opengl.h>
+#include <SDL_syswm.h>
 #include <cmath>
 #include <imgui.h>
 #include <imgui_impl_opengl3.h>
@@ -15,6 +15,7 @@
 #include "common.hpp"
 #include "config.hpp"
 #include "divert.hpp"
+#include "events.hpp"
 #include "lua.hpp"
 #include "module.hpp"
 
@@ -87,12 +88,35 @@ public:
             return std::nullopt;
         }
 
+        SDL_SysWMinfo wmInfo;
+        SDL_VERSION(&wmInfo.version);
+        SDL_GetWindowWMInfo(window, &wmInfo);
+
+        // NOLINTBEGIN(cppcoreguidelines-pro-type-union-access)
+        const auto window_handle = wmInfo.info.win.window;
+        // NOLINTEND(cppcoreguidelines-pro-type-union-access)
+
+        if (!ChangeWindowMessageFilterEx(window_handle, WM_DROPFILES,
+                                         MSGFLT_ALLOW, nullptr)) {
+            LOG("Failed to allow WM_DROPFILES message: %lu", GetLastError());
+        }
+
+        if (!ChangeWindowMessageFilterEx(window_handle, WM_COPYDATA,
+                                         MSGFLT_ALLOW, nullptr)) {
+            LOG("Failed to allow WM_COPYDATA message: %lu", GetLastError());
+        }
+
+        const auto WM_COPYGLOBALDATA = 0x49;
+        if (!ChangeWindowMessageFilterEx(window_handle, WM_COPYGLOBALDATA,
+                                         MSGFLT_ALLOW, nullptr)) {
+            LOG("Failed to allow WM_COPYGLOBALDATA message: %lu",
+                GetLastError());
+        }
+
         return Application(window, gl_context, config_entries);
     }
 
     bool run() {
-        // Run lua script
-        m_lua.load_script("main.lua");
 
         SDL_GL_MakeCurrent(m_window, m_gl_context);
         SDL_GL_SetSwapInterval(1);
@@ -133,6 +157,12 @@ public:
             while (SDL_PollEvent(&event)) {
                 if (event.type == SDL_QUIT)
                     break;
+
+                if (event.type == SDL_DROPFILE) {
+                    m_lua.load_script(event.drop.file);
+                    SDL_free(event.drop.file);
+                    continue;
+                }
 
                 ImGui_ImplSDL2_ProcessEvent(&event);
             }
@@ -218,8 +248,52 @@ public:
                                m_error_message.c_str());
         }
 
+        ImGui::BeginChild("modules", {0.f, 0.f}, ImGuiChildFlags_ResizeY);
         for (const auto& module : m_win_divert.modules()) {
             dirty |= module->draw();
+        }
+        ImGui::EndChild();
+
+        if (ImGui::BeginTable(
+                "Scripts", 2,
+                ImGuiTableFlags_Resizable | ImGuiTableFlags_Sortable |
+                    ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg)) {
+            ImGui::TableSetupColumn("Name");
+            ImGui::TableSetupColumn("Full path");
+            ImGui::TableHeadersRow();
+
+            int row = 1;
+            for (auto it = m_lua.scripts().cbegin();
+                 it != m_lua.scripts().cend(); ++it, row++) {
+                ImGui::PushID(&it->name);
+
+                ImGui::TableNextRow();
+
+                ImGui::TableNextColumn();
+                ImGui::Text("%s", it->name.c_str());
+                ImGui::TableNextColumn();
+                ImGui::Text("%ls", it->file_path.c_str());
+
+                if (ImGui::TableGetHoveredRow() == row &&
+                    ImGui::IsMouseReleased(ImGuiMouseButton_Right)) {
+                    ImGui::OpenPopup("scripts_popup");
+                    dirty = true;
+                }
+
+                if (ImGui::BeginPopup("scripts_popup")) {
+                    if (ImGui::Button("Unload")) {
+                        assert(m_lua.unload_script(it));
+                        ImGui::CloseCurrentPopup();
+                        dirty = true;
+                    }
+
+                    ImGui::EndPopup();
+                }
+
+                ImGui::PopID();
+            }
+
+            ImGui::EndTable();
         }
 
         // ImGui::GetCurrentWindow()->GetID("Logs");
@@ -314,8 +388,10 @@ int main(int argc, char* argv[]) {
     auto config_entries = parse_config();
     auto app = Application::init(config_entries.value_or(
         std::unordered_map<std::string, toml::table>()));
-    if (!app)
+    if (!app) {
+        LOG("App initialization failed, exiting");
         return -1;
+    }
 
     app->run();
 

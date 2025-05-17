@@ -1,6 +1,7 @@
 #pragma once
 
 #include <SDL.h>
+#include <filesystem>
 #include <list>
 #include <lua.hpp>
 #include <memory>
@@ -9,11 +10,29 @@
 
 #include "module.hpp"
 
+class RegistryKey {
+public:
+    [[nodiscard]] std::string get() const {
+        return std::format("cluamsy{:d}", m_counter);
+    };
+
+private:
+    static inline size_t s_counter = 0;
+    size_t m_counter = s_counter++;
+};
+
 class Lua {
 private:
     struct Script {
         Lua* lua;
-        std::string file_name;
+        std::string name;
+        std::filesystem::path file_path;
+        std::optional<RegistryKey> unload_function_key;
+    };
+
+    struct TimerData {
+        Lua* lua;
+        SDL_TimerID timer_id;
     };
 
 public:
@@ -30,8 +49,8 @@ public:
     void push_api(const std::vector<std::shared_ptr<Module>>& modules);
 
     [[nodiscard]] lua_State* state() const noexcept { return m_lua_state; };
-    bool load_script(const std::string& file_name);
-    bool unload_script(const std::string& file_name);
+    bool load_script(const std::filesystem::path& file_path);
+    bool unload_script(const std::list<Script>::const_iterator it);
 
     [[nodiscard]] const std::list<Script>& scripts() const noexcept {
         return m_scripts;
@@ -48,11 +67,6 @@ private:
 
 private:
     lua_State* m_lua_state;
-
-    struct TimerData {
-        Lua* lua;
-        SDL_TimerID timer_id;
-    };
 
     std::list<Script> m_scripts;
     std::list<TimerData> m_timer_data;
