@@ -9,6 +9,11 @@ public:
         m_short_name = "Drop";
     }
 
+    DropModule(const DropModule&) = default;
+    DropModule(DropModule&&) = delete;
+    DropModule& operator=(const DropModule&) = default;
+    DropModule& operator=(DropModule&&) = delete;
+
     virtual ~DropModule() = default;
 
     bool draw() override;

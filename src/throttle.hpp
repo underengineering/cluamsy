@@ -19,6 +19,11 @@ public:
         m_short_name = "Throttle";
     }
 
+    ThrottleModule(const ThrottleModule&) = default;
+    ThrottleModule(ThrottleModule&&) = delete;
+    ThrottleModule& operator=(const ThrottleModule&) = default;
+    ThrottleModule& operator=(ThrottleModule&&) = delete;
+
     virtual ~ThrottleModule() = default;
 
     bool draw() override;

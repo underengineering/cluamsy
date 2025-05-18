@@ -17,6 +17,11 @@ public:
         m_short_name = "Lag";
     }
 
+    LagModule(const LagModule&) = default;
+    LagModule(LagModule&&) = delete;
+    LagModule& operator=(const LagModule&) = default;
+    LagModule& operator=(LagModule&&) = delete;
+
     virtual ~LagModule() = default;
 
     bool draw() override;

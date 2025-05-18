@@ -9,6 +9,11 @@ public:
         m_short_name = "Duplicate";
     }
 
+    DuplicateModule(const DuplicateModule&) = default;
+    DuplicateModule(DuplicateModule&&) = delete;
+    DuplicateModule& operator=(const DuplicateModule&) = default;
+    DuplicateModule& operator=(DuplicateModule&&) = delete;
+
     virtual ~DuplicateModule() = default;
 
     bool draw() override;

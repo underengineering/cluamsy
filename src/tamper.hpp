@@ -15,6 +15,11 @@ public:
         m_short_name = "Tamper";
     }
 
+    TamperModule(const TamperModule&) = default;
+    TamperModule(TamperModule&&) = delete;
+    TamperModule& operator=(const TamperModule&) = default;
+    TamperModule& operator=(TamperModule&&) = delete;
+
     virtual ~TamperModule() = default;
 
     bool draw() override;
