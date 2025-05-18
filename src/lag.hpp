@@ -53,6 +53,8 @@ private:
     static int lua_method_chance(lua_State* L) {
         auto* module = *std::bit_cast<LagModule**>(lua_touserdata(L, 1));
         const auto rets = lua_getset(L, module->m_chance, 2);
+        if (rets == 0)
+            events::queue_redraw();
 
         return rets;
     };
@@ -64,6 +66,7 @@ private:
         const auto rets = lua_getset(L, lag_time, 2);
         if (rets == 0) {
             module->m_lag_time = std::chrono::milliseconds(lag_time);
+            events::queue_redraw();
         }
 
         return rets;

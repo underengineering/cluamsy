@@ -3,6 +3,7 @@
 #include <cassert>
 #include <chrono>
 
+#include "events.hpp"
 #include "lua_util.hpp"
 #include "module.hpp"
 
@@ -92,6 +93,8 @@ private:
     static int lua_method_limit(lua_State* L) {
         auto* module = *std::bit_cast<BandwidthModule**>(lua_touserdata(L, 1));
         const auto rets = lua_getset(L, module->m_limit, 2);
+        if (rets == 0)
+            events::queue_redraw();
 
         return rets;
     };

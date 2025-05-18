@@ -44,6 +44,8 @@ private:
     static int lua_method_chance(lua_State* L) {
         auto* module = *std::bit_cast<DropModule**>(lua_touserdata(L, 1));
         const auto rets = lua_getset(L, module->m_chance, 2);
+        if (rets == 0)
+            events::queue_redraw();
 
         return rets;
     };

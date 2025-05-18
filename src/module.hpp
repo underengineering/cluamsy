@@ -5,6 +5,9 @@
 #include <lua.hpp>
 #include <toml.hpp>
 
+#include <SDL.h>
+
+#include "events.hpp"
 #include "lua_util.hpp"
 #include "packet.hpp"
 
@@ -54,6 +57,8 @@ private:
     static int lua_method_enabled(lua_State* L) {
         auto* module = *std::bit_cast<Module**>(lua_touserdata(L, 1));
         const auto rets = lua_getset(L, module->m_enabled, 2);
+        if (rets == 0)
+            events::queue_redraw();
 
         return rets;
     };
