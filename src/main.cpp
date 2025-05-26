@@ -13,6 +13,7 @@
 #include <string>
 
 #include "common.hpp"
+#include "completions.hpp"
 #include "config.hpp"
 #include "divert.hpp"
 #include "events.hpp"
@@ -117,7 +118,6 @@ public:
     }
 
     bool run() {
-
         SDL_GL_MakeCurrent(m_window, m_gl_context);
         SDL_GL_SetSwapInterval(1);
 
@@ -200,7 +200,8 @@ public:
         auto dirty = false;
 
         ImGui::Begin("cluamsy", nullptr,
-                     ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove);
+                     ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove |
+                         ImGuiWindowFlags_NoBringToFrontOnFocus);
         ImGui::SetWindowPos({0, 0});
         ImGui::SetWindowSize(io.DisplaySize);
 
@@ -211,8 +212,30 @@ public:
         ImGui::SameLine();
 
         ImGui::SetNextItemWidth(32.f * ImGui::GetFontSize());
-        if (ImGui::InputText("Filter", &m_filter))
+        if (ImGui::InputText("Filter", &m_filter)) {
             m_selected_config_entry = std::nullopt;
+            dirty = true;
+        }
+
+        if (ImGui::IsItemFocused()) {
+            const auto completions = get_filter_completions(m_filter);
+            if (completions) {
+                const auto input_rect_min = ImGui::GetItemRectMin();
+                const auto input_rect_max = ImGui::GetItemRectMax();
+
+                ImGui::SetNextWindowPos({input_rect_min.x, input_rect_max.y});
+                if (ImGui::Begin("filter_completions", nullptr,
+                                 ImGuiWindowFlags_AlwaysAutoResize |
+                                     ImGuiWindowFlags_NoTitleBar |
+                                     ImGuiWindowFlags_NoSavedSettings |
+                                     ImGuiWindowFlags_NoFocusOnAppearing |
+                                     ImGuiWindowFlags_NoNavFocus)) {
+                    for (const auto& completion : *completions)
+                        ImGui::Text("%s", completion.data());
+                    ImGui::End();
+                }
+            }
+        }
 
         ImGui::SameLine();
 

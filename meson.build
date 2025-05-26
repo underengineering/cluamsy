@@ -51,6 +51,7 @@ configure_file(
 
 sources = files(
   'src/bandwidth.cpp',
+  'src/completions.cpp',
   'src/config.cpp',
   'src/divert.cpp',
   'src/drop.cpp',
