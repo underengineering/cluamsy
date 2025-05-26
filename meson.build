@@ -36,6 +36,9 @@ luajit_dep = dependency('luajit', version: '>=2.1', required: true)
 
 ws32_dep = cxx.find_library('ws2_32', required: true)
 winmm_dep = cxx.find_library('winmm', required: true)
+shlwapi_dep = cxx.find_library('shlwapi', required: true)
+propsys_dep = cxx.find_library('propsys', required: true)
+comctl32_dep = cxx.find_library('comctl32', required: true)
 
 configure_file(
   input: './external/WinDivert-2.2.0-C/x64/WinDivert.dll',
@@ -67,6 +70,7 @@ sources = files(
   # 'src/reset.cpp',
   'src/tamper.cpp',
   'src/throttle.cpp',
+  'src/ui/file_dialog/common_file_dialog.cpp',
 )
 exe = executable(
   'cluamsy',
@@ -82,6 +86,9 @@ exe = executable(
     luajit_dep,
     ws32_dep,
     winmm_dep,
+    shlwapi_dep,
+    propsys_dep,
+    comctl32_dep,
   ],
   override_options: ['cpp_std=c++20'],
   cpp_args: ['-DNOMINMAX', '-DTOML_HEADER_ONLY=0'],

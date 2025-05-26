@@ -1,4 +1,3 @@
-#define WIN32_LEAN_AND_MEAN
 #include <Windows.h>
 
 #include <SDL.h>
@@ -19,6 +18,8 @@
 #include "events.hpp"
 #include "lua.hpp"
 #include "module.hpp"
+#include "ui/file_dialog/common_file_dialog.hpp"
+
 
 namespace ImGui {
 bool InputText(const char* label, std::string* str,
@@ -210,9 +211,25 @@ public:
 
         ImGui::Begin("cluamsy", nullptr,
                      ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove |
-                         ImGuiWindowFlags_NoBringToFrontOnFocus);
+                         ImGuiWindowFlags_NoBringToFrontOnFocus |
+                         ImGuiWindowFlags_MenuBar);
         ImGui::SetWindowPos({0, 0});
         ImGui::SetWindowSize(io.DisplaySize);
+
+        if (ImGui::BeginMenuBar()) {
+            if (ImGui::BeginMenu("File")) {
+                if (ImGui::Button("Load script")) {
+                    std::filesystem::path path;
+                    if (SUCCEEDED(open_file_dialog(path))) {
+                        m_lua.load_script(path);
+                    }
+                }
+
+                ImGui::EndMenu();
+            }
+
+            ImGui::EndMenuBar();
+        }
 
         if (ImGui::Button(m_enabled ? "Stop" : "Start")) {
             toggle_win_divert();
