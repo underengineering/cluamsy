@@ -151,6 +151,8 @@ public:
                                          std::round(12.0f * dpi_scaling));
         }
 
+        auto first_frame = true;
+
         // Run the main loop
         while (true) {
             SDL_Event event;
@@ -189,6 +191,13 @@ public:
             ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 
             SDL_GL_SwapWindow(m_window);
+
+            // https://github.com/ocornut/imgui/issues/2949
+            if (first_frame) {
+                first_frame = false;
+                continue;
+            }
+
             SDL_WaitEvent(nullptr);
         }
 
