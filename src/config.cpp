@@ -1,18 +1,13 @@
 #define TOML_IMPLEMENTATION
 #include "config.hpp"
 
-#include <fstream>
-#include <sstream>
-#include <string>
-#include <unordered_map>
-
 #include "common.hpp"
 
 extern std::optional<std::unordered_map<std::string, toml::table>>
-parse_config() {
+parse_config(const std::filesystem::path& path) {
     LOG("Loading config file");
 
-    std::ifstream file("cluamsy.ini");
+    std::ifstream file(path);
     if (!file.is_open()) {
         LOG("Opening failed");
         return std::nullopt;
@@ -37,7 +32,6 @@ parse_config() {
             continue;
         }
 
-        LOG("entry '%s'", key.data());
         configs.emplace(key, *table);
     }
 

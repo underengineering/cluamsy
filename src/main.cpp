@@ -428,13 +428,32 @@ int main(int argc, char* argv[]) {
     freopen("CONOUT$", "w", stdout);
     freopen("CONOUT$", "w", stderr);
 
+    // Parse args
+    std::filesystem::path config_path = "cluamsy.toml";
+    for (int i = 1; i < argc; i++) {
+        const std::string_view arg = argv[i];
+        if (!arg.starts_with("--") || arg.size() < 3) {
+            break;
+        }
+
+        const auto key = arg.substr(2);
+        if (++i >= argc) {
+            break;
+        }
+
+        const std::string_view value = argv[i];
+        if (key == "config") {
+            config_path = value;
+        }
+    }
+
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER | SDL_INIT_GAMECONTROLLER) <
         0) {
         LOG("Couldn't initialize SDL: %s", SDL_GetError());
         return -1;
     }
 
-    auto config_entries = parse_config();
+    const auto config_entries = parse_config(config_path);
     auto app = Application::init(config_entries.value_or(
         std::unordered_map<std::string, toml::table>()));
     if (!app) {
