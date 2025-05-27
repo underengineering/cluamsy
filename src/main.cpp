@@ -179,8 +179,7 @@ public:
 
             if (draw()) {
                 // Redraw on the next frame if state has changed
-                SDL_Event event{events::REDRAW};
-                SDL_PushEvent(&event);
+                events::queue_redraw();
             }
 
             ImGui::Render();
