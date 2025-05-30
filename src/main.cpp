@@ -20,7 +20,6 @@
 #include "module.hpp"
 #include "ui/file_dialog/common_file_dialog.hpp"
 
-
 namespace ImGui {
 bool InputText(const char* label, std::string* str,
                ImGuiInputTextFlags flags = ImGuiInputTextFlags_None,
@@ -343,18 +342,6 @@ public:
 
             ImGui::EndTable();
         }
-
-        // ImGui::GetCurrentWindow()->GetID("Logs");
-        // ImGui::Dummy({0.f, });
-        //
-        //
-        // // Show logs at the bottom (TODO: docking)
-        // if (ImGui::BeginChild("Logs", {0.f, 0.f},
-        //                       ImGuiChildFlags_Borders |
-        //                           ImGuiChildFlags_ResizeY)) {
-        //     ImGui::LabelText("#lol", "fuck you");
-        // }
-        // ImGui::EndChild();
 
         ImGui::End();
 

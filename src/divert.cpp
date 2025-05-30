@@ -170,10 +170,6 @@ void WinDivert::thread(ThreadData thread_data) {
         const auto* buffer_data =
             first_slice.buffer()->data() + first_slice.offset();
         const auto buffer_size = contiguous_slice_offset - first_slice.offset();
-        // LOG("Writing %zu/%zu packets at once, slice_offset=%zu "
-        //     "buffer_offset=%zu size=%zu",
-        //     write_packet_count, g_packets.size(), first_slice.offset(),
-        //     contiguous_slice_offset, buffer_size);
         WinDivertSendEx(thread_data.divert_handle, buffer_data, buffer_size,
                         nullptr, 0, pending_write->addresses.data(),
                         write_packet_count * sizeof(WINDIVERT_ADDRESS),
@@ -219,7 +215,6 @@ void WinDivert::thread(ThreadData thread_data) {
             DenseBufferArray dense_buffers(std::move(dense_buffer));
             dense_buffer = std::make_shared<std::vector<char>>(
                 BUFFER_SIZE); // Allocate a new buffer
-            // LOG("new packets buf size %zu", BUFFER_SIZE);
 
             const auto* const data = dense_buffers.buffer()->data();
             const auto packet_count =
@@ -233,15 +228,11 @@ void WinDivert::thread(ThreadData thread_data) {
                 uint16_t packet_size = 0;
                 if (iphdr->Version == 4) {
                     packet_size = ntohs(iphdr->Length);
-                    // LOG("pkt id %i ttl %i size %i", iphdr->Id, iphdr->TTL,
-                    //     packet_size);
                 } else {
                     const auto* const ipv6hdr =
                         std::bit_cast<PWINDIVERT_IPV6HDR>(data + offset);
                     packet_size =
                         htons(ipv6hdr->Length) + sizeof(WINDIVERT_IPV6HDR);
-                    // LOG("pkt6 id %i ttl %i size %d", ipv6hdr->FlowLabel0,
-                    //     ipv6hdr->HopLimit, packet_size);
                 }
 
                 packets.emplace_back(PacketNode{
@@ -295,8 +286,7 @@ void WinDivert::thread(ThreadData thread_data) {
 
             // Notify main thread to redraw
             if (dirty) {
-                SDL_Event event{events::REDRAW};
-                SDL_PushEvent(&event);
+                events::queue_redraw();
             }
 
             if (!pending_write && !packets.empty())
@@ -321,8 +311,6 @@ void WinDivert::thread(ThreadData thread_data) {
                 break;
             }
 
-            // LOG("Wrote %lu bytes, pending %zu", write, g_packets.size());
-
             if (packets.empty() && should_stop) [[unlikely]] {
                 LOG("Stopping");
                 stop = true;
@@ -345,6 +333,8 @@ void WinDivert::thread(ThreadData thread_data) {
 
             if (pending_write || !packets.empty()) {
                 // Wait for all packets to be sent before exiting
+                LOG("Waiting for %zu packets to be sent before stopping",
+                    packets.size());
                 should_stop = true;
             } else {
                 // We can exit immediately
