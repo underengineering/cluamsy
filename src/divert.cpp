@@ -76,7 +76,7 @@ std::optional<std::string> WinDivert::start(const std::string& filter) {
     ThreadData thread_data = {
         .divert_handle = m_divert_handle,
         .stop_event_handle = m_stop_event_handle,
-        .modules = m_modules,
+        .modules = &m_modules,
     };
 
     m_thread = std::thread(thread, thread_data);
@@ -115,6 +115,8 @@ struct PendingWrite {
 };
 
 void WinDivert::thread(ThreadData thread_data) {
+    assert(thread_data.modules != nullptr);
+
     std::list<PacketNode> packets;
 
     auto read_event_handle = CreateEvent(nullptr, false, false, nullptr);
@@ -263,7 +265,7 @@ void WinDivert::thread(ThreadData thread_data) {
         case WAIT_TIMEOUT: {
             // Run modules
             auto dirty = false;
-            for (const auto& module : thread_data.modules) {
+            for (const auto& module : *thread_data.modules) {
                 if (module->m_enabled) {
                     // Initialize it if it wasn't
                     if (!module->m_was_enabled) {
@@ -336,7 +338,7 @@ void WinDivert::thread(ThreadData thread_data) {
         // STOP
         case WAIT_OBJECT_0 + 2:
             // Run post-disable module cleanups
-            for (auto& module : thread_data.modules) {
+            for (auto& module : *thread_data.modules) {
                 if (module->m_enabled && module->m_was_enabled)
                     module->disable(packets);
             }

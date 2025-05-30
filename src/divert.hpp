@@ -36,7 +36,7 @@ private:
     struct ThreadData {
         HANDLE divert_handle;
         HANDLE stop_event_handle;
-        const std::vector<std::shared_ptr<Module>>& modules;
+        const std::vector<std::shared_ptr<Module>>* modules;
     };
 
     static void thread(ThreadData thread_data);

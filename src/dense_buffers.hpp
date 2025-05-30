@@ -43,11 +43,11 @@ private:
 class DenseBufferArray {
 public:
     explicit DenseBufferArray(std::vector<char>&& buffer)
-        : m_buffer(std::make_shared<std::vector<char>>(buffer)) {}
+        : m_buffer(std::make_shared<std::vector<char>>(std::move(buffer))) {}
     explicit DenseBufferArray(const std::shared_ptr<std::vector<char>>& buffer)
         : m_buffer(buffer) {}
     explicit DenseBufferArray(std::shared_ptr<std::vector<char>>&& buffer)
-        : m_buffer(buffer) {}
+        : m_buffer(std::move(buffer)) {}
 
     DenseBufferArray(const DenseBufferArray&) = default;
     DenseBufferArray& operator=(const DenseBufferArray&) = default;
