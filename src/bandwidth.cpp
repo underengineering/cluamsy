@@ -76,8 +76,8 @@ BandwidthModule::process(std::list<PacketNode>& packets) {
 
     m_rate_stats.set_max_tokens(limit);
     m_rate_stats.replenish(current_time_point, limit);
-    for (auto it = packets.begin(); it != packets.end();) {
-        const auto packet = *it;
+    for (auto it = packets.cbegin(); it != packets.cend();) {
+        const auto& packet = *it;
         if (check_direction(packet.addr.Outbound, m_inbound, m_outbound)) {
             const auto size = packet.packet.size();
             if (!m_rate_stats.update(current_time_point, size)) {
@@ -89,6 +89,8 @@ BandwidthModule::process(std::list<PacketNode>& packets) {
             } else {
                 ++it;
             }
+        } else {
+            ++it;
         }
     }
 
