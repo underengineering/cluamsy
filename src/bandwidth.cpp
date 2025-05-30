@@ -33,7 +33,7 @@ bool BandwidthModule::draw() {
     ImGui::SameLine();
 
     ImGui::SetNextItemWidth(8.f * ImGui::GetFontSize());
-    if (ImGui::InputInt("Limit", &m_limit)) {
+    if (ImGui::InputInt("Limit KiB/s", &m_limit)) {
         m_limit = std::max(0, m_limit);
         dirty = true;
     }
@@ -80,7 +80,7 @@ BandwidthModule::process(std::list<PacketNode>& packets) {
         const auto& packet = *it;
         if (check_direction(packet.addr.Outbound, m_inbound, m_outbound)) {
             const auto size = packet.packet.size();
-            if (!m_rate_stats.update(current_time_point, size)) {
+            if (!m_rate_stats.update(current_time_point, size * 8)) {
                 LOG("Dropped with bandwidth %dKiB/s, direction %s",
                     (int)m_limit,
                     packet.addr.Outbound ? "OUTBOUND" : "INBOUND");
