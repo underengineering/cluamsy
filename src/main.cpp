@@ -278,6 +278,8 @@ public:
                             config[module->m_short_name].as_table();
                         if (module_entry) {
                             module->apply_config(*module_entry);
+                        } else {
+                            module->apply_config({});
                         }
                     }
 

@@ -72,7 +72,7 @@ void DuplicateModule::apply_config(const toml::table& config) {
     m_outbound = config["outbound"].value_or(true);
 
     m_chance = std::clamp(config["chance"].value_or(100.f), 0.f, 100.f);
-    m_count = std::max(config["count"].value_or(100), 0);
+    m_count = std::max(config["count"].value_or(1), 0);
 }
 
 DuplicateModule::Result
