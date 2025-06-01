@@ -81,8 +81,7 @@ void TamperModule::apply_config(const toml::table& config) {
 TamperModule::Result TamperModule::process(std::list<PacketNode>& packets) {
     const auto total_packets = packets.size();
     auto tampered = 0;
-    for (auto it = packets.begin(); it != packets.end();) {
-        auto& packet = *it;
+    for (auto& packet : packets) {
         if (!check_direction(packet.addr.Outbound, m_inbound, m_outbound) ||
             !check_chance(m_chance))
             continue;

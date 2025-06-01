@@ -87,7 +87,7 @@ DuplicateModule::process(std::list<PacketNode>& packets) {
                 packet.addr.Outbound ? "OUTBOUND" : "INBOUND");
             for (auto i = 0; i < m_count; i++)
                 it = packets.insert(it, packet);
-            std::advance(it, m_count);
+            std::advance(it, m_count + 1);
             ++duplicated;
         } else {
             ++it;
