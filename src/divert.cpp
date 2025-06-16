@@ -254,6 +254,14 @@ void WinDivert::thread(ThreadData thread_data) {
             [[fallthrough]];
         }
         case WAIT_TIMEOUT: {
+            // Do not try to run any module if we're stopping
+            if (should_stop) [[unlikely]] {
+                if (!pending_write && !packets.empty())
+                    stage_write();
+
+                break;
+            }
+
             // Run modules
             auto dirty = false;
             for (const auto& module : *thread_data.modules) {
